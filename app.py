@@ -6,6 +6,18 @@ import plotly.graph_objects as go
 import pandas as pd
 import dash_cytoscape as cyto
 import json
+import pathlib
+
+def _json_to_mock(json_path="mock_data.json"):
+    raw = json.loads(pathlib.Path(json_path).read_text())
+    for main, cfg in raw.items():
+        for sub, sub_cfg in cfg["subtopics"].items():
+            sub_cfg["experiments"] = pd.DataFrame(sub_cfg["experiments"])
+    return raw
+
+MOCK_DATA = _json_to_mock()   # same name your callbacks already use
+
+
 
 # --- Mock Data ------------------------------------------------------------------
 # Updated MOCK_DATA to include subtopics
@@ -500,6 +512,77 @@ def display_tap_node_data(data):
         return f"You clicked on node: **{data['label']}**. In a real app, this would trigger a new search or display detailed publication data related to this topic."
     return "Click a node to see details."
 
+
+# ------------------------------------------------------------------
+# 1.  BACKEND FETCHER  ––  edit however you like
+# ------------------------------------------------------------------
+def fetch_from_backend(path: str):
+    """
+    path = "radiation/dna_damage/summary"
+    Return string, list or dict to inject into the JSON structure.
+    Below are THREE example implementations – pick ONE (or write your own).
+    """
+    import os, json, pathlib, requests
+
+    # -------  A.  local JSON file  ---------------------------------
+    # file  backend.json  sitting next to app.py
+    # {
+    #   "radiation": {
+    #     "dna_damage": {
+    #       "summary": "text fetched from file",
+    #       "experiments": [{"Organism":"Mice","Count":99}]
+    #     }
+    #   }
+    # }
+    backend_file = pathlib.Path("backend.json")
+    if backend_file.exists():
+        root = json.loads(backend_file.read_text())
+        keys = path.split("/")
+        for k in keys:
+            root = root.get(k, {})
+        return root
+
+    # -------  B.  environment variable  -----------------------------
+    env_key = path.replace("/", "_").upper()   # RADIATION_DNA_DAMAGE_SUMMARY
+    return os.getenv(env_key, f"⚠️ no backend value for {path}")
+
+    # -------  C.  remote REST endpoint  -----------------------------
+    # url = f"https://your.api/nasa/{path}"
+    # return requests.get(url, timeout=5).json()
+
+    # fallback
+    return f"⚠️ backend key {path} not found"
+
+# ------------------------------------------------------------------
+# 2.  JSON → PYTHON  (with backend injection + DataFrame conversion)
+# ------------------------------------------------------------------
+import pathlib, json, pandas as pd
+
+def _load_dynamic_mock(json_path="mock_data.json"):
+    raw = json.loads(pathlib.Path(json_path).read_text())
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            # if we see {"backend": "some/path"}  ->  replace it
+            if "backend" in obj and len(obj) == 1:
+                return fetch_from_backend(obj["backend"])
+            return {k: _walk(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_walk(item) for item in obj]
+        return obj
+
+    raw = _walk(raw)
+
+    # convert experiments lists → DataFrame
+    for main, cfg in raw.items():
+        for sub, sub_cfg in cfg["subtopics"].items():
+            sub_cfg["experiments"] = pd.DataFrame(sub_cfg["experiments"])
+    return raw
+
+# ------------------------------------------------------------------
+# 3.  INITIAL LOAD  (same name your callbacks already use)
+# ------------------------------------------------------------------
+MOCK_DATA = _load_dynamic_mock()
 
 # --- Run Application ------------------------------------------------------------
 if __name__ == '__main__':
