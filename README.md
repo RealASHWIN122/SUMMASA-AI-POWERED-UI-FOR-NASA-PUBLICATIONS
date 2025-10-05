@@ -1,4 +1,11 @@
-# SUMMASA-AI-POWERED-UI-FOR-NASA-PUBLICATIONS
-OUR IDEA FOR NASA SPACE APPS 2025
-random commit
-random
+HOW TO RUN:
+
+1. pip install requirements.txt
+
+2. python app.py
+
+
+
+
+
+
