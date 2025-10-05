@@ -1,318 +1,138 @@
 import dash
-from dash import dcc, html, Input, Output, State, ALL
+from dash import dcc, html, Input, Output, State, ALL, ctx
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import dash_cytoscape as cyto
 import json
-
-# =========================================================================
-# === GEMINI INTEGRATION SECTION ===
-# =========================================================================
 import tempfile
 import os
 import base64
+import atexit
+
+# Scraper and Selenium Imports
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+# Make sure you have nslsl_scraper.py in the same directory
+from nslsl_scraper import scrape_nslsl_search_results, download_nslsl_pdf
+
+# Gemini Imports
 from google import genai
 from google.genai import types
 
-# WARNING: Replace this with your actual key or use os.environ['GEMINI_API_KEY']
-# Using a placeholder for security.
-GEMINI_API_KEY = "AIzaSyA2f64amvhSBD26sDYgzJv6bgTQqlB_hNA" 
-MODEL_NAME = 'gemini-2.5-flash'
+# =========================================================================
+# === WEB DRIVER & GEMINI MANAGEMENT ===
+# =========================================================================
+print("🚀 Initializing Selenium WebDriver...")
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+DRIVER = webdriver.Chrome(options=chrome_options)
 
-# Initialize the Gemini Client
+def close_driver():
+    print("🛑 Shutting down WebDriver.")
+    DRIVER.quit()
+atexit.register(close_driver)
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', "YOUR_API_KEY_HERE") 
+MODEL_NAME = 'gemini-1.5-flash'
 try:
-    if GEMINI_API_KEY and GEMINI_API_KEY != "AIzaSyA2f64amvhSBD26sDYgzJv6bgTQqlC_hNA_REPLACE_ME":
+    if GEMINI_API_KEY != "YOUR_API_KEY_HERE":
         client = genai.Client(api_key=GEMINI_API_KEY)
         GEMINI_AVAILABLE = True
     else:
-        client = None
-        GEMINI_AVAILABLE = False
-        print("WARNING: Gemini API Key not set. Document Analysis will be disabled.")
+        client = None; GEMINI_AVAILABLE = False
+        print("WARNING: Gemini API Key not set.")
 except Exception as e:
-    client = None
-    GEMINI_AVAILABLE = False
+    client = None; GEMINI_AVAILABLE = False
     print(f"Error initializing Gemini Client: {e}")
 
 def get_pdf_summary_dash(base64_content, filename, summary_length, current_client):
-    """
-    Handles file decoding, upload to Gemini, summarization, and cleanup.
-    Returns the summary text and a status message.
-    """
-    if not current_client or not base64_content:
-        return "Gemini API is not configured or file content is missing.", "danger"
-
+    if not current_client or not base64_content: return "Gemini API is not configured or file content is missing.", "danger"
     content_type, content_string = base64_content.split(',')
     decoded = base64.b64decode(content_string)
-    
-    uploaded_file_part = None
+    uploaded_file = None
     temp_file_path = None
-    
-    # 1. Save the uploaded file to a temporary file
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             tmp_file.write(decoded)
             temp_file_path = tmp_file.name
-
-        # 2. Upload the file to the Gemini File API
-        uploaded_file_part = current_client.files.upload(
-            file=temp_file_path, 
-            config={'mime_type': 'application/pdf'}
-        )
-        
-        system_instruction = (
-            "You are an expert document summarization specialist. Your task is to provide a concise, "
-            "accurate summary of the provided PDF document. Focus on key findings, main arguments, "
-            "and conclusions. The user wants the output in Markdown format."
-        )
-        
-        prompt = f"Summarize the uploaded PDF document named '{filename}' in a **{summary_length}** format. Return only the summary text, no conversational phrases."
-        
-        # 3. Generate content
-        response = current_client.models.generate_content(
-            model=MODEL_NAME,
-            contents=[uploaded_file_part, prompt],
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.2 
-            )
-        )
-        summary = response.text
-        status = "success"
-        
+        uploaded_file = current_client.files.upload(path=temp_file_path, display_name=filename)
+        system_instruction = "You are an expert document summarization specialist..."
+        prompt = f"Summarize the uploaded PDF document named '{filename}' in a **{summary_length}** format..."
+        model = current_client.models.get_model(f'models/{MODEL_NAME}')
+        response = model.generate_content([uploaded_file, prompt], system_instruction=system_instruction)
+        summary, status = response.text, "success"
     except Exception as e:
-        summary = f"An error occurred during summarization: {e}"
-        status = "danger"
-        
+        summary, status = f"An error occurred during summarization: {e}", "danger"
     finally:
-        # 4. Clean up
-        if temp_file_path and os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-            
-        if uploaded_file_part:
-            try:
-                current_client.files.delete(name=uploaded_file_part.name)
-            except Exception as e:
-                # Log the file cleanup failure but don't halt the app
-                print(f"Gemini file cleanup failed for {uploaded_file_part.name}: {e}")
-            
+        if temp_file_path and os.path.exists(temp_file_path): os.unlink(temp_file_path)
+        if uploaded_file:
+            try: current_client.files.delete(name=uploaded_file.name)
+            except Exception as e: print(f"Gemini file cleanup failed for {uploaded_file.name}: {e}")
     return summary, status
 # =========================================================================
 
-
-# --- Mock Data (MODIFIED for Doc Analysis Button) --------------------------------------------
-# --- Mock Data (MODIFIED for new buttons and layout) ---------------------
-# --- Mock Data (MODIFIED with all subtopics) ---------------------
+# --- MOCK DATA ---
 MOCK_DATA = {
-    # --- Physics (Already done) ---
     'physics': {
-        'display_name': 'Physics',
-        'layout_group': 'sidebar',
-        'subtopics': {
+        'display_name': 'Physics', 'layout_group': 'sidebar', 'subtopics': {
             'classical_mechanics': {
-    'title': 'Classical Mechanics',
-    'summary': "Classical mechanics deals with the motion of macroscopic objects...",
-    # ... (keep all the existing keys like experiments, knowledge_gaps, etc.)
-    
-    # --- UPDATE THIS LIST ---
-    'related_documents': [
-            {'title': 'NASA Technical Reports: Basics of Space Flight', 'url': 'https://solarsystem.nasa.gov/basics/space-flight/'},
-            {'title': 'Introduction to Orbital Mechanics - Glenn Research Center', 'url': 'https://www.nasa.gov/mission_pages/station/expeditions/expedition30/tryathome.html'}
-            
-
-        
-      
-    ]
-    # ------------------------------------
-},
-            'quantum_mechanics': {
-                'title': 'Quantum Mechanics',
-                'summary': "Summary for Quantum Mechanics goes here.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+                'title': 'Classical Mechanics', 'summary': "Classical mechanics deals with the motion of macroscopic objects...",
+                'experiments': pd.DataFrame({"System": ["Pendulums", "Projectiles", "Planetary Orbits"], "Studies": [120, 85, 200]}),
+                'knowledge_gaps': {"Three-Body Problem": 40, "Non-Inertial Frames": 30, "Chaotic Systems": 30},
+                'actionable': { 'Mission Architects': "Utilize gravitational assist maneuvers...", 'Scientists': "Refine models for atmospheric drag...", 'Managers': "Allocate resources for better collision avoidance..." },
+                'graph_elements': [ {'data': {'id': 'newton', 'label': "Newton's Laws"}}, {'data': {'id': 'motion', 'label': 'Equations of Motion'}}, {'data': {'source': 'newton', 'target': 'motion'}} ],
+                'related_documents': [ {'title': 'NASA Reports: Basics of Space Flight', 'url': 'https://solarsystem.nasa.gov/basics/space-flight/'}, {'title': 'Orbital Mechanics - Glenn Research Center', 'url': 'https://www.nasa.gov/mission_pages/station/expeditions/expedition30/tryathome.html'} ]
             },
-            'thermodynamics': {
-                'title': 'Thermodynamics',
-                'summary': "Summary for Thermodynamics goes here.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
-            }
+            'quantum_mechanics': { 'title': 'Quantum Mechanics', 'summary': "Summary for Quantum Mechanics...", 'experiments': pd.DataFrame(), 'knowledge_gaps': {}, 'actionable': {}, 'graph_elements': [] },
         }
     },
-    
-    # --- NEW: Chemistry ---
     'chemistry': {
-        'display_name': 'Chemistry',
-        'layout_group': 'sidebar',
-        'subtopics': {
-            'astrochemistry': {
-                'title': 'Astrochemistry',
-                'summary': "Astrochemistry is the study of the abundance and reactions of molecules in the Universe, and their interaction with radiation. It's crucial for understanding the formation of stars, planets, and potentially life.",
-                'experiments': pd.DataFrame({
-                    "Method": ["Radio Telescopes", "Space Probes", "Lab Simulations"],
-                    "Detections": [150, 45, 90]
-                }),
-                'knowledge_gaps': {"Prebiotic Molecules": 50, "Isotopic Ratios": 30, "Reaction Pathways": 20},
-                'actionable': {
-                    'Mission Architects': "Equip probes with advanced spectrometers to analyze molecular clouds and planetary atmospheres.",
-                    'Scientists': "Model chemical reactions in low-temperature, low-pressure environments to replicate interstellar conditions.",
-                    'Managers': "Support interdisciplinary projects combining astronomy, chemistry, and biology."
-                },
-                'graph_elements': [
-                    {'data': {'id': 'clouds', 'label': 'Interstellar Clouds'}},
-                    {'data': {'id': 'molecules', 'label': 'Simple Molecules'}},
-                    {'data': {'id': 'organics', 'label': 'Complex Organics'}},
-                    {'data': {'id': 'life', 'label': 'Origin of Life?'}},
-                    {'data': {'source': 'clouds', 'target': 'molecules'}},
-                    {'data': {'source': 'molecules', 'target': 'organics'}},
-                    {'data': {'source': 'organics', 'target': 'life'}},
-                ]
-            },
-            'propellants': {
-                'title': 'Propellant Chemistry',
-                'summary': "The study of chemical propellants is vital for launch vehicles and spacecraft. Research focuses on increasing specific impulse (Isp), stability, and storability of fuels and oxidizers, including cryogenics and hypergolic compounds.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
-            }
+        'display_name': 'Chemistry', 'layout_group': 'sidebar', 'subtopics': {
+            'astrochemistry': { 'title': 'Astrochemistry', 'summary': "Astrochemistry is the study of molecules in the Universe...", 'experiments': pd.DataFrame(), 'knowledge_gaps': {}, 'actionable': {}, 'graph_elements': [] },
         }
     },
-
-    # --- NEW: Maths ---
     'maths': {
-        'display_name': 'Maths',
-        'layout_group': 'sidebar',
-        'subtopics': {
-            'orbital_mechanics': {
-                'title': 'Orbital Mechanics',
-                'summary': "Also known as astrodynamics, this is the application of ballistics and celestial mechanics to the practical problems concerning the motion of rockets and other spacecraft. It allows for the calculation of trajectories, planetary flybys, and orbital maneuvers.",
-                'experiments': pd.DataFrame({
-                    "Application": ["Satellite Deployment", "Interplanetary Travel", "Debris Tracking"],
-                    "Missions": [1000, 50, 200]
-                }),
-                'knowledge_gaps': {"Low-Thrust Optimization": 45, "N-Body Problem": 35, "Chaotic Systems": 20},
-                'actionable': {
-                    'Mission Architects': "Design fuel-efficient trajectories using principles like Hohmann transfers and gravitational assists.",
-                    'Scientists': "Develop robust algorithms to solve the n-body problem for stable multi-satellite constellations.",
-                    'Managers': "Invest in collision avoidance systems based on predictive orbital modeling."
-                },
-                'graph_elements': [
-                    {'data': {'id': 'kepler', 'label': "Kepler's Laws"}},
-                    {'data': {'id': 'trajectory', 'label': 'Trajectory Calculation'}},
-                    {'data': {'id': 'hohmann', 'label': 'Hohmann Transfer'}},
-                    {'data': {'id': 'success', 'label': 'Mission Success'}},
-                    {'data': {'source': 'kepler', 'target': 'trajectory'}},
-                    {'data': {'source': 'trajectory', 'target': 'hohmann'}},
-                    {'data': {'source': 'hohmann', 'target': 'success'}},
-                ]
-            },
-            'signal_processing': {
-                'title': 'Signal Processing',
-                'summary': "Mathematical techniques are essential for cleaning, decoding, and interpreting data transmitted from spacecraft over vast distances. This includes Fourier analysis, error correction codes, and image compression algorithms.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
-            }
+        'display_name': 'Maths', 'layout_group': 'sidebar', 'subtopics': {
+            'orbital_mechanics': { 'title': 'Orbital Mechanics', 'summary': "Also known as astrodynamics...", 'experiments': pd.DataFrame(), 'knowledge_gaps': {}, 'actionable': {}, 'graph_elements': [] },
         }
     },
-
-    # --- NEW: Science ---
     'science': {
-        'display_name': 'Science',
-        'layout_group': 'sidebar',
-        'subtopics': {
-            'exoplanetology': {
-                'title': 'Exoplanetology',
-                'summary': "The scientific field dedicated to the discovery and study of exoplanets (planets outside our Solar System). Key methods include transit photometry and radial velocity, with the ultimate goal of finding habitable worlds.",
-                'experiments': pd.DataFrame({
-                    "Mission": ["Kepler", "TESS", "JWST"],
-                    "Discoveries": [2662, 250, 50]
-                }),
-                'knowledge_gaps': {"Biosignatures": 60, "Planet Formation": 25, "Rogue Planets": 15},
-                'actionable': {
-                    'Mission Architects': "Design next-generation telescopes with coronagraphs to directly image exoplanets and analyze their atmospheres.",
-                    'Scientists': "Develop machine learning models to sift through telescope data and identify potential transit signals.",
-                    'Managers': "Prioritize long-term funding for missions capable of atmospheric characterization of Earth-like exoplanets."
-                },
-                'graph_elements': [
-                    {'data': {'id': 'star', 'label': 'Distant Star'}},
-                    {'data': {'id': 'transit', 'label': 'Transit Method'}},
-                    {'data': {'id': 'planet', 'label': 'Exoplanet Detected'}},
-                    {'data': {'id': 'atmosphere', 'label': 'Atmosphere Analysis'}},
-                    {'data': {'id': 'habitability', 'label': 'Habitability?'}},
-                    {'data': {'source': 'star', 'target': 'transit'}},
-                    {'data': {'source': 'transit', 'target': 'planet'}},
-                    {'data': {'source': 'planet', 'target': 'atmosphere'}},
-                    {'data': {'source': 'atmosphere', 'target': 'habitability'}},
-                ]
-            },
-            'planetary_geology': {
-                'title': 'Planetary Geology',
-                'summary': "This discipline, also known as astrogeology, studies the geology of celestial bodies such as planets, moons, asteroids, and comets. It helps us understand the formation and evolution of our solar system.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
-            }
+        'display_name': 'Science', 'layout_group': 'sidebar', 'subtopics': {
+            'exoplanetology': { 'title': 'Exoplanetology', 'summary': "The scientific field of exoplanets...", 'experiments': pd.DataFrame(), 'knowledge_gaps': {}, 'actionable': {}, 'graph_elements': [] },
         }
     },
-    
-    # --- Main Button ---
-    'doc_analysis': {
-        'display_name': 'Document Analysis (AI)',
-        'layout_group': 'main', 
-        'default_subtopic': 'summarizer_mode' 
-    }
+    'doc_analysis': { 'display_name': 'Document Analysis (AI)', 'layout_group': 'main', 'default_subtopic': 'summarizer_mode' }
 }
 
-# --- Styles & Theming (Unchanged) -----------------------------------------------------------
-# --- Styles & Theming (Unchanged) -----------------------------------------------------------
+# --- STYLES & APP INIT ---
 APP_THEME = dbc.themes.CYBORG
 CUSTOM_CSS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-# The final, correct line
 LOGO = "/assets/AI-image-summarizer-for-Journalists-Content-Creators.png"
 CHART_TEMPLATE = 'plotly_dark'
-# --- App Initialization (Unchanged) ---------------------------------------------------------
 app = dash.Dash(__name__, external_stylesheets=[APP_THEME, CUSTOM_CSS, dbc.icons.BOOTSTRAP], suppress_callback_exceptions=True)
 app.title = "NASA HELPER"
 
-# --- Reusable Components (Unchanged) -------------------------------------------------------
+# --- REUSABLE COMPONENTS ---
 def create_card(title, content, icon):
-    header = html.H5(
-        [html.I(className=f"bi {icon} me-2"), " ", title],
-        className="card-title",
-        style={'color': '#00bfff'}
-    )
-    body_children = [header, html.Hr()]
-    if isinstance(content, list):
-        body_children.extend(content)
-    else:
-        body_children.append(content)
-    return dbc.Card(
-        dbc.CardBody(body_children),
-        className="mb-4",
-        style={'borderColor': '#00bfff', 'backgroundColor': '#1a2a44'}
-    )
+    if content is None: return None
+    header = html.H5([html.I(className=f"bi {icon} me-2"), " ", title], className="card-title", style={'color': '#00bfff'})
+    body = [header, html.Hr()]
+    if isinstance(content, list): body.extend(content)
+    else: body.append(content)
+    return dbc.Card(dbc.CardBody(body), className="mb-4", style={'borderColor': '#00bfff', 'backgroundColor': '#1a2a44'})
 
-# --- NEW: Dedicated Summarizer Layout Function ---
+# --- LAYOUT GENERATORS ---
 def generate_summarizer_page_layout():
-    """Generates the dedicated layout for the document summarizer feature (NO TABS)."""
-    # Gemini Document Analysis Content block
+    """Generates the dedicated layout for the document summarizer feature."""
     gemini_ui_content = [
         html.P("Upload a PDF document to receive an AI-powered summary. This is ideal for quickly processing research papers, mission reports, or technical specifications.", className="lead"),
         dbc.Alert(
-            "⚠️ Gemini API Key is not configured. Document Analysis is currently disabled. Please set your API key in the script.", 
+            "⚠️ Gemini API Key is not configured. Document Analysis is currently disabled. Please set your API key as an environment variable.", 
             color="warning", 
             is_open=not GEMINI_AVAILABLE
-        ) if not GEMINI_AVAILABLE else None,
-        
+        ),
         dbc.Row([
             dbc.Col(dcc.Upload(
                 id='upload-data',
@@ -341,7 +161,7 @@ def generate_summarizer_page_layout():
                 "Summarize Document", 
                 id="summarize-button", 
                 color="primary", 
-                className="mt-3",
+                className="mt-3 w-100",
                 disabled=not GEMINI_AVAILABLE,
                 style={'backgroundColor': '#ff8c00', 'borderColor': '#ff8c00'}
             ), md=2)
@@ -352,33 +172,25 @@ def generate_summarizer_page_layout():
     ]
     
     return html.Div([
-        # Button to go back to the landing page
         dbc.Button("Back to Topics", id="back-to-topics-button", className="mb-3", color="light", outline=True),
         html.H3("Gemini AI Document Analysis", className="text-white mb-4"),
-        
-        # The main card containing the Gemini UI
         create_card("On-Demand PDF Summarizer", gemini_ui_content, "bi-file-earmark-text-fill")
     ])
 
-# --- Layout Generators ---------------------------------------------------------
 def generate_landing_layout():
-    """Creates the initial screen with a horizontal button bar above the title."""
-    
-    # 1. Create the horizontal bar of buttons from MOCK_DATA
-    # This now includes all buttons that were previously in the sidebar
+    """Creates the initial screen."""
     horizontal_buttons = html.Div(
         [
             dbc.Button(
                 data['display_name'],
                 id={'type': 'topic-button', 'index': key},
-                className="m-2", # Adds margin around each button
+                className="m-2",
                 color="secondary"
             ) for key, data in MOCK_DATA.items() if data.get('layout_group') == 'sidebar'
         ],
-        className="d-flex justify-content-center flex-wrap mb-4" # Centers the buttons
+        className="d-flex justify-content-center flex-wrap mb-4"
     )
 
-    # 2. Create the main "Document Analysis" button
     main_buttons = html.Div(
         [
             dbc.Button(
@@ -392,17 +204,12 @@ def generate_landing_layout():
         className="d-flex justify-content-center flex-wrap mb-4"
     )
     
-    # 3. Assemble the final layout
     hero_section = dbc.Container(
         [
-            # --- BUTTON BAR GOES HERE, ABOVE EVERYTHING ELSE ---
             horizontal_buttons, 
-            
-            html.H1("Welcome to D0C0SUM", className="display-1 fw-bold text-White text-center"),
+            html.H1("Welcome to D0C0SUM", className="display-1 fw-bold text-white text-center"),
             html.P("A hacky bois initiative for summarize", className="text-center text-white-50 fs-4 mb-5"),
-            
-            main_buttons, # The Document Analysis button
-            
+            main_buttons,
             dbc.InputGroup(
                 [
                     dbc.Input(id="search-input", placeholder="Search for any topic...", type="text"),
@@ -410,7 +217,6 @@ def generate_landing_layout():
                 ],
                 className="mb-3 w-75 mx-auto",
             ),
-            
             dbc.Row(dbc.Col(html.Div(id="search-error"), width={'size': 6, 'offset': 3}))
         ],
         fluid=True,
@@ -422,6 +228,7 @@ def generate_landing_layout():
     )
     
     return html.Div([hero_section])
+
 def generate_subtopic_layout(main_topic_key):
     """Generates the layout for selecting subtopics."""
     if main_topic_key not in MOCK_DATA or 'subtopics' not in MOCK_DATA[main_topic_key]:
@@ -451,20 +258,18 @@ def generate_subtopic_layout(main_topic_key):
         }
     )
 
-def generate_dashboard_layout(main_topic_key, subtopic_key):
-    """Creates the detailed dashboard view for a selected topic or a custom query."""
-    
-    # *** CORE LOGIC FIX: Check for the dedicated summarizer flow and return the custom layout ***
+def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None):
+    """Creates the detailed dashboard view, with placeholder cards and the scraped list."""
     if main_topic_key == 'doc_analysis' and subtopic_key == 'summarizer_mode':
         return generate_summarizer_page_layout()
-    # *****************************************************************************************
 
-    # --- Standard Topic/Query Handling ---
     data = {}
-    
-    # CASE 1: Handle a custom query that is not in MOCK_DAT
-    data = {
-            'title': f"On-Demand Analysis for: {subtopic_key.title()}",
+    is_custom_query = subtopic_key == 'custom_query'
+
+    if is_custom_query:
+        # Use placeholder data for the main dashboard cards
+        data = {
+            'title': f"On-Demand Analysis for: {main_topic_key.title()}",
             'summary': "This is a custom query. In a real application, a backend model would generate a summary here based on the search term.",
             'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
             'knowledge_gaps': {"Awaiting Analysis": 100},
@@ -474,122 +279,72 @@ def generate_dashboard_layout(main_topic_key, subtopic_key):
                 'Managers': "Evaluate the potential of this new research area."
             },
             'graph_elements': [
-                {'data': {'id': 'query', 'label': subtopic_key.title()}},
+                {'data': {'id': 'query', 'label': main_topic_key.title()}},
                 {'data': {'id': 'placeholder', 'label': 'Analysis Pending...'}},
                 {'data': {'source': 'query', 'target': 'placeholder'}, 'classes': 'edge'},
             ]
         }
-   
+    elif main_topic_key in MOCK_DATA and subtopic_key in MOCK_DATA[main_topic_key].get('subtopics', {}):
+        # Data from our pre-defined MOCK_DATA
+        data = MOCK_DATA[main_topic_key]['subtopics'][subtopic_key]
+    else:
+        return dbc.Alert("Error: Data for this topic could not be found.", color="danger")
 
-    # --- Standard Dashboard Components ---
-    graph_config = {'staticPlot': True}
-    summary_card = create_card("AI-Powered Summary", dcc.Markdown(data['summary']), "bi-robot")
+    # --- Create ALL dashboard cards, using placeholder data if needed ---
+    summary_card = create_card("AI-Powered Summary", dcc.Markdown(data.get('summary', '')), "bi-robot")
+    
     knowledge_graph = create_card("Knowledge Graph", cyto.Cytoscape(
-        id='knowledge-graph',
-        layout={'name': 'cose'}, 
-        style={'width': '100%', 'height': '400px'},
-        elements=data['graph_elements'],
-        stylesheet=[
-            {'selector': 'node', 'style': {'label': 'data(label)', 'background-color': '#00bfff', 'color': 'white', 'font-size': '12px'}},
-            {'selector': 'edge', 'style': {'line-color': '#4e5d78', 'width': 2, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#4e5d78'}},
-        ],
+        id='knowledge-graph', layout={'name': 'cose'}, style={'width': '100%', 'height': '400px'},
+        elements=data.get('graph_elements', []),
     ), "bi-diagram-3-fill")
 
-    fig_bar = px.bar(
-        data['experiments'], x=data['experiments'].columns[0], y=data['experiments'].columns[1],
-        title='Data Distribution',
-        template=CHART_TEMPLATE, color_discrete_sequence=['#ff69b4']
-    )
-    fig_bar.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-    bar_chart = create_card("Data Distribution", dcc.Graph(figure=fig_bar, config=graph_config, style={'height': '350px'}), "bi-bar-chart-line-fill")
-
-    fig_pie = px.pie(
-        names=list(data['knowledge_gaps'].keys()), values=list(data['knowledge_gaps'].values()),
-        title='Knowledge Gaps', template=CHART_TEMPLATE, hole=0.4,
-        color_discrete_sequence=px.colors.sequential.Plasma_r
-    )
-    fig_pie.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-    pie_chart = create_card("Areas of Study", dcc.Graph(figure=fig_pie, config=graph_config, style={'height': '350px'}), "bi-pie-chart-fill")
-
-    actionable_insights = create_card("Actionable Insights", [
-        dbc.Tabs([
-            dbc.Tab(dcc.Markdown(data['actionable']['Mission Architects']), label="Architects"),
-            dbc.Tab(dcc.Markdown(data['actionable']['Scientists']), label="Scientists"),
-            dbc.Tab(dcc.Markdown(data['actionable']['Managers']), label="Managers"),
-        ])
-    ], "bi-lightbulb-fill")
-    
-    # --- Gemini Document Analysis Tab Content (Reused in the main dashboard) ---
-    doc_analysis_tab_content = html.Div([
-        html.P("Upload a PDF document to get an on-demand summary related to space research.", className="lead"),
-        dbc.Alert(
-            "⚠️ Gemini API Key is not configured. Document Analysis is currently disabled.", 
-            color="warning", 
-            is_open=not GEMINI_AVAILABLE
-        ) if not GEMINI_AVAILABLE else None,
+    experiments_df = data.get('experiments')
+    if experiments_df is not None and not experiments_df.empty:
+        fig_bar = px.bar(
+            experiments_df, x=experiments_df.columns[0], y=experiments_df.columns[1],
+            title='Data Distribution', template=CHART_TEMPLATE, color_discrete_sequence=['#ff69b4']
+        )
+        fig_bar.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        bar_chart = create_card("Data Distribution", dcc.Graph(figure=fig_bar, config={'staticPlot': True}, style={'height': '350px'}), "bi-bar-chart-line-fill")
+    else:
+        bar_chart = create_card("Data Distribution", "No experimental data available.", "bi-bar-chart-line-fill")
         
-        dbc.Row([
-            dbc.Col(dcc.Upload(
-                id='upload-data',
-                children=html.Div(['Drag and Drop or ', html.A('Select a PDF File')]),
-                style={
-                    'width': '100%', 'height': '60px', 'lineHeight': '60px',
-                    'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px',
-                    'textAlign': 'center', 'margin': '10px', 'color': '#00bfff'
-                },
-                multiple=False
-            ), md=6),
-            dbc.Col(dcc.Dropdown(
-                id='summary-length-dropdown',
-                options=[
-                    {'label': 'Executive Summary (200 words)', 'value': 'executive summary (200 words)'},
-                    {'label': '3 Concise Bullet Points', 'value': '3 concise bullet points'},
-                    {'label': 'One Short Paragraph', 'value': 'one short paragraph'},
-                    {'label': 'Detailed Report (500 words)', 'value': 'detailed report (500 words)'}
-                ],
-                value='executive summary (200 words)',
-                clearable=False,
-                style={'color': '#333'} 
-            ), md=4),
-            dbc.Col(dbc.Button(
-                "Summarize Document", 
-                id="summarize-button", 
-                color="primary", 
-                className="mt-3",
-                disabled=not GEMINI_AVAILABLE
-            ), md=2)
-        ]),
-        html.Div(id='upload-filename-display', className="mb-3 text-white-50"),
-        html.Div(id='summary-output-container', children=dbc.Alert("Upload a PDF and click 'Summarize Document' to see results.", color="info", className="mt-4")),
-    ])
-    
-    # --- Dashboard Layout Structure with Tabs ---
-    back_button_id = "back-to-subtopics-button" if subtopic_key != 'custom_query' else "back-to-topics-button"
-    back_button_text = "Go Back to Subtopics" if subtopic_key != 'custom_query' else "Back to Home"
+    # --- Scraped Documents Card ---
+    scraped_documents_card = None
+    if scraped_results and scraped_results.get('documents'):
+        doc_items = [
+            dbc.ListGroupItem(
+                doc["title"], id={'type': 'doc-title-button', 'index': doc["title"]},
+                action=True, className="text-white bg-dark"
+            ) for doc in scraped_results['documents']
+        ]
+        scraped_content = [
+            html.P("Click a title to download its PDF.", className="small"),
+            dbc.ListGroup(doc_items, flush=True, style={'maxHeight': '400px', 'overflowY': 'auto'}),
+            html.Div(id='download-status-container', className="mt-2")
+        ]
+        scraped_documents_card = create_card("Scraped Documents", scraped_content, "bi-card-list")
 
+    back_button_id = "back-to-subtopics-button" if not is_custom_query else "back-to-topics-button"
+    back_button_text = "Go Back to Subtopics" if not is_custom_query else "Back to Home"
+
+    # --- Assemble final layout ---
     return html.Div([
         dbc.Button(back_button_text, id=back_button_id, className="mb-3", color="light", outline=True),
-        html.H3(f"{data['title']}", className="text-white mb-4"),
-        
-        # This is the standard view with the two tabs
-        dbc.Tabs([
-            dbc.Tab(
-                label="Topic Dashboard", 
-                children=html.Div([
-                    dbc.Row([dbc.Col(summary_card, md=12)]),
-                    dbc.Row([dbc.Col(knowledge_graph, md=7), dbc.Col([bar_chart, pie_chart], md=5)]),
-                    dbc.Row([dbc.Col(actionable_insights, md=12)])
-                ])
-            ),
-            dbc.Tab(
-                label="Document Analysis ", 
-                children=doc_analysis_tab_content
-            ),
-        ], className="mb-4", active_tab="tab-0") 
+        html.H3(f"{data.get('title', 'Dashboard')}", className="text-white mb-4"),
+        dbc.Row([
+            dbc.Col([
+                summary_card,
+                knowledge_graph,
+            ], md=7),
+            dbc.Col([
+                bar_chart,
+                scraped_documents_card, # Add the scraped documents card to the right column
+            ], md=5)
+        ]),
     ])
 
-
-# --- Main App Layout (Unchanged) ------------------------------------------------------------
+# --- MAIN APP LAYOUT & ROUTER ---
 header = dbc.Navbar(
     dbc.Container([
         html.A(
@@ -608,142 +363,102 @@ header = dbc.Navbar(
 )
 
 app.layout = html.Div([
-    dcc.Store(id='app-state', data={'view': 'landing', 'main_topic': None, 'subtopic': None, 'uploaded_data': None, 'uploaded_filename': None}),
+    dcc.Store(id='app-state', data={'view': 'landing', 'main_topic': None, 'subtopic': None, 'uploaded_data': None, 'uploaded_filename': None, 'scraped_results': None}),
     header,
     dcc.Loading(id="loading-spinner", type="circle", children=html.Div(id="page-content"))
 ])
 
-# --- Callbacks ------------------------------------------------------------------
-@app.callback(
-    Output('page-content', 'children'),
-    Input('app-state', 'data')
-)
+@app.callback(Output('page-content', 'children'), Input('app-state', 'data'))
 def router(data):
     """Main router to switch between views."""
     view = data.get('view')
-    main_topic = data.get('main_topic')
-    subtopic = data.get('subtopic')
-
-    if view == 'landing':
-        return generate_landing_layout()
-    elif view == 'subtopic_selection':
-        return generate_subtopic_layout(main_topic)
+    if view == 'landing': return generate_landing_layout()
+    elif view == 'subtopic_selection': return generate_subtopic_layout(data.get('main_topic'))
     elif view == 'dashboard':
-        return html.Div(generate_dashboard_layout(main_topic, subtopic), className="p-4")
+        return html.Div(generate_dashboard_layout(
+            data.get('main_topic'), 
+            data.get('subtopic'), 
+            data.get('scraped_results')
+        ), className="p-4")
     return html.Div("404 - Page not found")
 
-# --- Dash/Gemini Integration Callbacks (UNMOVED: IDs are global) ---
-
+# --- CALLBACKS ---
 @app.callback(
-    [Output('app-state', 'data', allow_duplicate=True),
-     Output('upload-filename-display', 'children')],
+    [Output('app-state', 'data', allow_duplicate=True), Output('upload-filename-display', 'children')],
     Input('upload-data', 'contents'),
-    State('upload-data', 'filename'),
-    State('app-state', 'data'),
+    State('upload-data', 'filename'), State('app-state', 'data'),
     prevent_initial_call=True
 )
 def save_uploaded_file(list_of_contents, list_of_names, current_state):
-    """Saves the uploaded file's content and name to the dcc.Store."""
-    if list_of_contents is None:
-        raise dash.exceptions.PreventUpdate
-
-    uploaded_data = list_of_contents
-    uploaded_filename = list_of_names
-    
-    current_state['uploaded_data'] = uploaded_data
-    current_state['uploaded_filename'] = uploaded_filename
-    
-    return current_state, html.P(f"File ready for summarization: **{uploaded_filename}**", className="text-success")
+    if list_of_contents is None: raise dash.exceptions.PreventUpdate
+    current_state['uploaded_data'] = list_of_contents
+    current_state['uploaded_filename'] = list_of_names
+    return current_state, html.P(f"File ready: **{list_of_names}**", className="text-success")
 
 @app.callback(
     Output('summary-output-container', 'children'),
     Input('summarize-button', 'n_clicks'),
-    State('app-state', 'data'),
-    State('summary-length-dropdown', 'value'),
+    State('app-state', 'data'), State('summary-length-dropdown', 'value'),
     prevent_initial_call=True
 )
 def generate_summary_from_upload(n_clicks, app_state, summary_length):
-    """Triggers the Gemini summarization and displays the result."""
-    if not n_clicks:
-        raise dash.exceptions.PreventUpdate
-    
-    if not GEMINI_AVAILABLE:
-        return dbc.Alert("Error: Gemini API is not configured.", color="danger")
-
+    if not n_clicks: raise dash.exceptions.PreventUpdate
+    if not GEMINI_AVAILABLE: return dbc.Alert("Error: Gemini API is not configured.", color="danger")
     uploaded_data = app_state.get('uploaded_data')
     uploaded_filename = app_state.get('uploaded_filename')
-    
-    if not uploaded_data:
-        return dbc.Alert("Please upload a PDF file first.", color="warning")
-
-    # Call the core Gemini function
+    if not uploaded_data: return dbc.Alert("Please upload a PDF file first.", color="warning")
     summary, status = get_pdf_summary_dash(uploaded_data, uploaded_filename, summary_length, client)
-    
-    return create_card(
-        f"Gemini Summary: {uploaded_filename}", 
-        dcc.Markdown(summary), 
-        "bi-file-earmark-text-fill"
-    ) if status == 'success' else dbc.Alert(summary, color=status)
-
-
-# --- Navigation Callbacks (Adjusted for 'doc_analysis' flow) ---
+    return create_card(f"Gemini Summary: {uploaded_filename}", dcc.Markdown(summary), "bi-file-earmark-text-fill") if status == 'success' else dbc.Alert(summary, color=status)
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
     Output('search-error', 'children'),
     Input('search-button', 'n_clicks'),
-    State('search-input', 'value'),
+    State('search-input', 'value'), State('app-state', 'data'),
     prevent_initial_call=True,
 )
-def search_topic(n_clicks, search_value):
-    """Handle search bar submissions on landing page."""
+def search_topic(n_clicks, search_value, current_state):
+    """Handle search bar submissions, now with live scraping."""
     if not n_clicks or not search_value:
         raise dash.exceptions.PreventUpdate
-
-    topic_key = (search_value or '').lower().strip()
     
+    topic_key = (search_value or '').lower().strip()
     if topic_key in MOCK_DATA:
         if 'subtopics' not in MOCK_DATA[topic_key]:
-            # Directly navigate non-subtopic entries (like 'doc_analysis') to their dashboard state
             subtopic_key = MOCK_DATA[topic_key]['default_subtopic']
-            return {'view': 'dashboard', 'main_topic': topic_key, 'subtopic': subtopic_key}, None
-            
-        return {'view': 'subtopic_selection', 'main_topic': topic_key, 'subtopic': None}, None
-    
+            current_state.update({'view': 'dashboard', 'main_topic': topic_key, 'subtopic': subtopic_key, 'scraped_results': None})
+            return current_state, None
+        current_state.update({'view': 'subtopic_selection', 'main_topic': topic_key, 'subtopic': None, 'scraped_results': None})
+        return current_state, None
     else:
-        return {'view': 'dashboard', 'main_topic': search_value, 'subtopic': 'custom_query'}, None
+        print(f"🔍 Custom search triggered for: {search_value}")
+        results = scrape_nslsl_search_results(DRIVER, search_value)
+        
+        current_state['scraped_results'] = {'documents': results, 'full_data': results} if results else None
+        current_state['view'] = 'dashboard'
+        current_state['main_topic'] = search_value
+        current_state['subtopic'] = 'custom_query'
+        return current_state, None
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
     Input({'type': 'topic-button', 'index': ALL}, 'n_clicks'),
-    Input('logo-home-link', 'n_clicks'),
-    Input('home-nav-link', 'n_clicks'),
+    Input('logo-home-link', 'n_clicks'), Input('home-nav-link', 'n_clicks'),
     prevent_initial_call=True
 )
 def select_main_topic(n_clicks_list, logo_clicks, home_nav_clicks):
-    """Handle main topic button clicks and home/logo navigation."""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        raise dash.exceptions.PreventUpdate
+    triggered_id = ctx.triggered_id
+    if not triggered_id: raise dash.exceptions.PreventUpdate
     
-    trigger_id = ctx.triggered[0]['prop_id']
-    
-    if trigger_id in ('logo-home-link.n_clicks', 'home-nav-link.n_clicks'):
-         return {'view': 'landing', 'main_topic': None, 'subtopic': None}
-         
-    if 'topic-button' in trigger_id:
-        button_id = json.loads(trigger_id.split('.')[0])
-        main_topic_key = button_id['index']
-
-        # SPECIAL HANDLING: If the topic has no subtopics (like 'doc_analysis'), go straight to dashboard
-        if main_topic_key in MOCK_DATA and 'subtopics' not in MOCK_DATA[main_topic_key]:
+    if isinstance(triggered_id, str) and triggered_id in ('logo-home-link', 'home-nav-link'):
+        return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None}
+    elif isinstance(triggered_id, dict) and triggered_id.get('type') == 'topic-button':
+        main_topic_key = triggered_id['index']
+        if 'subtopics' not in MOCK_DATA.get(main_topic_key, {}):
             subtopic_key = MOCK_DATA[main_topic_key]['default_subtopic']
-            return {'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': subtopic_key}
-            
-        return {'view': 'subtopic_selection', 'main_topic': main_topic_key, 'subtopic': None}
-        
+            return {'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': subtopic_key, 'scraped_results': None}
+        return {'view': 'subtopic_selection', 'main_topic': main_topic_key, 'subtopic': None, 'scraped_results': None}
     raise dash.exceptions.PreventUpdate
-
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -751,15 +466,9 @@ def select_main_topic(n_clicks_list, logo_clicks, home_nav_clicks):
     prevent_initial_call=True
 )
 def select_subtopic(n_clicks):
-    """Handle subtopic button clicks."""
-    ctx = dash.callback_context
-    if not any(n_clicks) or not ctx.triggered:
-        raise dash.exceptions.PreventUpdate
-
-    button_id = json.loads(ctx.triggered[0]['prop_id'].split('.')[0])
-    main_topic_key = button_id['main_topic']
-    subtopic_key = button_id['subtopic_key']
-    return {'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': subtopic_key}
+    if not ctx.triggered_id: raise dash.exceptions.PreventUpdate
+    button_id = ctx.triggered_id
+    return {'view': 'dashboard', 'main_topic': button_id['main_topic'], 'subtopic': button_id['subtopic_key'], 'scraped_results': None}
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -767,10 +476,8 @@ def select_subtopic(n_clicks):
     prevent_initial_call=True
 )
 def go_back_to_topics(n_clicks):
-    """Handle 'Back to Topics' button click."""
-    if not n_clicks:
-        raise dash.exceptions.PreventUpdate
-    return {'view': 'landing', 'main_topic': None, 'subtopic': None}
+    if not n_clicks: raise dash.exceptions.PreventUpdate
+    return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None}
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -779,12 +486,26 @@ def go_back_to_topics(n_clicks):
     prevent_initial_call=True
 )
 def go_back_to_subtopics(n_clicks, current_state):
-    """Handle 'Go Back to Subtopics' button click."""
-    if not n_clicks:
-        raise dash.exceptions.PreventUpdate
-    main_topic = current_state.get('main_topic')
-    return {'view': 'subtopic_selection', 'main_topic': main_topic, 'subtopic': None}
+    if not n_clicks: raise dash.exceptions.PreventUpdate
+    return {'view': 'subtopic_selection', 'main_topic': current_state.get('main_topic'), 'subtopic': None, 'scraped_results': None}
 
-# --- Run Application (FIXED: app.run_server -> app.run) -------------------------------------
+@app.callback(
+    Output('download-status-container', 'children'),
+    Input({'type': 'doc-title-button', 'index': ALL}, 'n_clicks'),
+    State('app-state', 'data'),
+    prevent_initial_call=True
+)
+def handle_document_click(n_clicks, app_state):
+    if not ctx.triggered_id or not any(n_clicks): raise dash.exceptions.PreventUpdate
+    clicked_doc_title = ctx.triggered_id['index']
+    scraped_data = app_state.get('scraped_results', {}).get('full_data', [])
+    selected_doc = next((doc for doc in scraped_data if doc["title"] == clicked_doc_title), None)
+    if not selected_doc: return dbc.Alert(f"Error: Document '{clicked_doc_title}' not found.", color="danger")
+    
+    pdf_path = download_nslsl_pdf(driver=DRIVER, doc_url=selected_doc["url"])
+    
+    if pdf_path: return dbc.Alert(f"Success! Saved to: {os.path.abspath(pdf_path)}", color="success", duration=10000)
+    else: return dbc.Alert(f"Download failed for '{clicked_doc_title}'.", color="danger", duration=10000)
+
 if __name__ == '__main__':
     app.run(debug=True)
