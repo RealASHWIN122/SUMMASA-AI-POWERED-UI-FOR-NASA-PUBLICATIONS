@@ -105,165 +105,147 @@ def get_pdf_summary_dash(base64_content, filename, summary_length, current_clien
 # --- Mock Data (MODIFIED for new buttons and layout) ---------------------
 # --- Mock Data (MODIFIED with all subtopics) ---------------------
 MOCK_DATA = {
-    # --- Physics (Already done) ---
+    # --- Physics ---
     'physics': {
         'display_name': 'Physics',
         'layout_group': 'sidebar',
         'subtopics': {
             'classical_mechanics': {
-    'title': 'Classical Mechanics',
-    'summary': "Classical mechanics deals with the motion of macroscopic objects...",
-    # ... (keep all the existing keys like experiments, knowledge_gaps, etc.)
-    
-    # --- UPDATE THIS LIST ---
-    'related_documents': [
-            {'title': 'NASA Technical Reports: Basics of Space Flight', 'url': 'https://solarsystem.nasa.gov/basics/space-flight/'},
-            {'title': 'Introduction to Orbital Mechanics - Glenn Research Center', 'url': 'https://www.nasa.gov/mission_pages/station/expeditions/expedition30/tryathome.html'}
-            
-
-        
-      
-    ]
-    # ------------------------------------
-},
+                'title': 'Classical Mechanics',
+                'summary': "Classical mechanics deals with the motion of macroscopic objects, from projectiles to parts of machinery, and astronomical objects. It's foundational to understanding forces like gravity and momentum as described by Newton's Laws of Motion.",
+                'experiments': pd.DataFrame({"Object Type": ["Satellites", "Projectiles", "Planetary Orbits", "Robotic Arms"], "Studies": [25, 18, 15, 11]}),
+                'knowledge_gaps': {"Orbital Decay": 40, "N-Body Problem": 35, "Material Stress": 25},
+                'actionable': {
+                    'Mission Architects': "Utilize gravitational assists for interplanetary missions to conserve fuel.",
+                    'Scientists': "Investigate the long-term stability of orbits in multi-body systems.",
+                    'Managers': "Fund development of predictive models for space debris trajectories."
+                },
+                'graph_elements': [{'data': {'id': 'newton', 'label': "Newton's Laws"}}, {'data': {'id': 'gravity', 'label': 'Gravity'}}, {'data': {'id': 'orbits', 'label': 'Planetary Orbits'}}, {'data': {'id': 'propulsion', 'label': 'Propulsion Systems'}}, {'data': {'source': 'newton', 'target': 'gravity'}}, {'data': {'source': 'gravity', 'target': 'orbits'}}, {'data': {'source': 'orbits', 'target': 'propulsion'}}],
+                'related_documents': [
+                    {'title': 'NASA Technical Reports: Basics of Space Flight', 'url': 'https://solarsystem.nasa.gov/basics/space-flight/'},
+                    {'title': 'Introduction to Orbital Mechanics - Glenn Research Center', 'url': 'https://www.nasa.gov/mission_pages/station/expeditions/expedition30/tryathome.html'},
+                    {'title': 'JPL Publication: Trajectory Design and Optimization', 'url': 'https://descanso.jpl.nasa.gov/monograph/series1/Descanso1_all.pdf'}
+                ]
+            },
             'quantum_mechanics': {
                 'title': 'Quantum Mechanics',
-                'summary': "Summary for Quantum Mechanics goes here.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+                'summary': "Quantum mechanics governs the behavior of matter and light on the atomic and subatomic scale. Its applications in space include ultra-precise atomic clocks for navigation, quantum sensors, and future quantum communication networks.",
+                'experiments': pd.DataFrame({"Application": ["Atomic Clocks", "Quantum Sensing", "Quantum Communication"], "Missions": [30, 8, 3]}),
+                'knowledge_gaps': {"Decoherence in Space": 50, "Entanglement Distribution": 40, "Quantum Computing": 10},
+                'actionable': {'Mission Architects': "Integrate next-gen atomic clocks for improved GPS and deep space navigation.", 'Scientists': "Develop quantum sensors for detecting gravitational waves and dark matter.", 'Managers': "Invest in foundational research for secure space-to-ground quantum communication."},
+                'graph_elements': [{'data': {'id': 'qm', 'label': 'Quantum Mechanics'}}, {'data': {'id': 'clock', 'label': 'Atomic Clocks'}}, {'data': {'id': 'comm', 'label': 'Quantum Communication'}}, {'data': {'source': 'qm', 'target': 'clock'}}, {'data': {'source': 'qm', 'target': 'comm'}}],
+                'related_documents': [
+                    {'title': 'Quantum Technology for Space Applications', 'url': 'https://ntrs.nasa.gov/citations/20205008215'},
+                    {'title': 'NASA\'s Quantum Computing Laboratory', 'url': 'https://www.nas.nasa.gov/quantum/'}
+                ]
             },
             'thermodynamics': {
                 'title': 'Thermodynamics',
-                'summary': "Summary for Thermodynamics goes here.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+                'summary': "Thermodynamics in space applications deals with heat management, power generation, and engine efficiency. This includes designing thermal protection systems for re-entry and powering deep space probes with Radioisotope Thermoelectric Generators (RTGs).",
+                'experiments': pd.DataFrame({"System": ["Heat Shields", "RTGs", "Cryocoolers"], "Applications": [40, 27, 15]}),
+                'knowledge_gaps': {"High-Temp Materials": 45, "Power Efficiency": 35, "Cryogenic Storage": 20},
+                'actionable': {'Mission Architects': "Design missions like the Parker Solar Probe with robust thermal shielding.", 'Scientists': "Research more efficient thermoelectric materials for next-generation RTGs.", 'Managers': "Fund research into mitigating boil-off of cryogenic propellants for long-duration missions."},
+                'graph_elements': [{'data': {'id': 'thermo', 'label': 'Thermodynamics'}}, {'data': {'id': 'heat', 'label': 'Heat Management'}}, {'data': {'id': 'power', 'label': 'Power Generation'}}, {'data': {'source': 'thermo', 'target': 'heat'}}, {'data': {'source': 'thermo', 'target': 'power'}}],
+                'related_documents': [
+                    {'title': 'A Heat Shield for Touching the Sun - NASA', 'url': 'https://www.nasa.gov/feature/goddard/2018/a-heat-shield-for-touching-the-sun'},
+                    {'title': 'What Is a Radioisotope Thermoelectric Generator?', 'url': 'https://www.nasa.gov/directorates/spacetech/game_changing_development/what_is_a_radioisotope_thermoelectric_generator'}
+                ]
             }
         }
     },
-    
-    # --- NEW: Chemistry ---
+    # --- Chemistry ---
     'chemistry': {
         'display_name': 'Chemistry',
         'layout_group': 'sidebar',
         'subtopics': {
             'astrochemistry': {
                 'title': 'Astrochemistry',
-                'summary': "Astrochemistry is the study of the abundance and reactions of molecules in the Universe, and their interaction with radiation. It's crucial for understanding the formation of stars, planets, and potentially life.",
-                'experiments': pd.DataFrame({
-                    "Method": ["Radio Telescopes", "Space Probes", "Lab Simulations"],
-                    "Detections": [150, 45, 90]
-                }),
+                'summary': "Astrochemistry is the study of molecules in the Universe and their reactions. It is crucial for understanding the formation of stars, planets, and the potential for life beyond Earth.",
+                'experiments': pd.DataFrame({"Method": ["Radio Telescopes", "Space Probes", "Lab Simulations"], "Detections": [150, 45, 90]}),
                 'knowledge_gaps': {"Prebiotic Molecules": 50, "Isotopic Ratios": 30, "Reaction Pathways": 20},
-                'actionable': {
-                    'Mission Architects': "Equip probes with advanced spectrometers to analyze molecular clouds and planetary atmospheres.",
-                    'Scientists': "Model chemical reactions in low-temperature, low-pressure environments to replicate interstellar conditions.",
-                    'Managers': "Support interdisciplinary projects combining astronomy, chemistry, and biology."
-                },
-                'graph_elements': [
-                    {'data': {'id': 'clouds', 'label': 'Interstellar Clouds'}},
-                    {'data': {'id': 'molecules', 'label': 'Simple Molecules'}},
-                    {'data': {'id': 'organics', 'label': 'Complex Organics'}},
-                    {'data': {'id': 'life', 'label': 'Origin of Life?'}},
-                    {'data': {'source': 'clouds', 'target': 'molecules'}},
-                    {'data': {'source': 'molecules', 'target': 'organics'}},
-                    {'data': {'source': 'organics', 'target': 'life'}},
+                'actionable': {'Mission Architects': "Equip probes with advanced spectrometers.", 'Scientists': "Model chemical reactions in interstellar conditions.", 'Managers': "Support interdisciplinary projects combining astronomy and chemistry."},
+                'graph_elements': [{'data': {'id': 'clouds', 'label': 'Interstellar Clouds'}}, {'data': {'id': 'molecules', 'label': 'Simple Molecules'}}, {'data': {'id': 'organics', 'label': 'Complex Organics'}}, {'data': {'id': 'life', 'label': 'Origin of Life?'}}, {'data': {'source': 'clouds', 'target': 'molecules'}}, {'data': {'source': 'molecules', 'target': 'organics'}}, {'data': {'source': 'organics', 'target': 'life'}}],
+                'related_documents': [
+                    {'title': 'NASA’s Cosmic Ice Lab Helps Uncover the Chemistry of the Universe', 'url': 'https://www.nasa.gov/goddard/2023/feature/nasa-s-cosmic-ice-lab-helps-uncover-the-chemistry-of-the-universe'},
+                    {'title': 'Webb Sees Ingredients for Life in Early Universe', 'url': 'https://www.nasa.gov/missions/webb/webb-sees-ingredients-for-life-in-early-universe/'}
                 ]
             },
             'propellants': {
                 'title': 'Propellant Chemistry',
-                'summary': "The study of chemical propellants is vital for launch vehicles and spacecraft. Research focuses on increasing specific impulse (Isp), stability, and storability of fuels and oxidizers, including cryogenics and hypergolic compounds.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+                'summary': "The study of chemical propellants is vital for launch vehicles and spacecraft. Research focuses on increasing efficiency (specific impulse), stability, and storability of fuels and oxidizers.",
+                'experiments': pd.DataFrame({"Type": ["Cryogenic", "Hypergolic", "Solid"], "Use Cases": [22, 18, 35]}),
+                'knowledge_gaps': {"Methane Engines": 40, "Green Propellants": 35, "Long-term Storage": 25},
+                'actionable': {'Mission Architects': "Select propellant types based on mission duration and thrust requirements.", 'Scientists': "Develop catalysts for more efficient green propellants to replace toxic hypergolics.", 'Managers': "Invest in infrastructure for in-situ resource utilization (e.g., creating methane on Mars)."},
+                'graph_elements': [{'data': {'id': 'prop', 'label': 'Propellants'}}, {'data': {'id': 'launch', 'label': 'Launch'}}, {'data': {'id': 'maneuver', 'label': 'In-Space Maneuvers'}}, {'data': {'source': 'prop', 'target': 'launch'}}, {'data': {'source': 'prop', 'target': 'maneuver'}}],
+                'related_documents': [
+                    {'title': 'The Chemistry of Space Propulsion - ACS', 'url': 'https://www.acs.org/education/resources/highschool/chemmatters/past-issues/2018-2019/december-2018/space-propulsion.html'},
+                    {'title': 'NASA is Turning to Greener Rocket Propellants', 'url': 'https://www.nasa.gov/nasa-is-turning-to-greener-rocket-propellants/'}
+                ]
             }
         }
     },
-
-    # --- NEW: Maths ---
+    # --- Maths ---
     'maths': {
         'display_name': 'Maths',
         'layout_group': 'sidebar',
         'subtopics': {
             'orbital_mechanics': {
                 'title': 'Orbital Mechanics',
-                'summary': "Also known as astrodynamics, this is the application of ballistics and celestial mechanics to the practical problems concerning the motion of rockets and other spacecraft. It allows for the calculation of trajectories, planetary flybys, and orbital maneuvers.",
-                'experiments': pd.DataFrame({
-                    "Application": ["Satellite Deployment", "Interplanetary Travel", "Debris Tracking"],
-                    "Missions": [1000, 50, 200]
-                }),
+                'summary': "Also known as astrodynamics, this is the application of ballistics and celestial mechanics to the practical problems concerning the motion of rockets and other spacecraft.",
+                'experiments': pd.DataFrame({"Application": ["Satellite Deployment", "Interplanetary Travel", "Debris Tracking"], "Missions": [1000, 50, 200]}),
                 'knowledge_gaps': {"Low-Thrust Optimization": 45, "N-Body Problem": 35, "Chaotic Systems": 20},
-                'actionable': {
-                    'Mission Architects': "Design fuel-efficient trajectories using principles like Hohmann transfers and gravitational assists.",
-                    'Scientists': "Develop robust algorithms to solve the n-body problem for stable multi-satellite constellations.",
-                    'Managers': "Invest in collision avoidance systems based on predictive orbital modeling."
-                },
-                'graph_elements': [
-                    {'data': {'id': 'kepler', 'label': "Kepler's Laws"}},
-                    {'data': {'id': 'trajectory', 'label': 'Trajectory Calculation'}},
-                    {'data': {'id': 'hohmann', 'label': 'Hohmann Transfer'}},
-                    {'data': {'id': 'success', 'label': 'Mission Success'}},
-                    {'data': {'source': 'kepler', 'target': 'trajectory'}},
-                    {'data': {'source': 'trajectory', 'target': 'hohmann'}},
-                    {'data': {'source': 'hohmann', 'target': 'success'}},
+                'actionable': {'Mission Architects': "Design fuel-efficient trajectories using Hohmann transfers.", 'Scientists': "Develop algorithms to solve the n-body problem for constellations.", 'Managers': "Invest in collision avoidance systems."},
+                'graph_elements': [{'data': {'id': 'kepler', 'label': "Kepler's Laws"}}, {'data': {'id': 'trajectory', 'label': 'Trajectory Calculation'}}, {'data': {'id': 'hohmann', 'label': 'Hohmann Transfer'}}, {'data': {'id': 'success', 'label': 'Mission Success'}}, {'data': {'source': 'kepler', 'target': 'trajectory'}}, {'data': {'source': 'trajectory', 'target': 'hohmann'}}, {'data': {'source': 'hohmann', 'target': 'success'}}],
+                 'related_documents': [
+                    {'title': 'What Is an Orbit? - NASA', 'url': 'https://www.nasa.gov/audience/forstudents/5-8/features/nasa-knows/what-is-orbit-58.html'},
+                    {'title': 'Space Mathematics - A Resource for Teachers', 'url': 'https://www.nasa.gov/wp-content/uploads/2015/06/space_math_viii.pdf'}
                 ]
             },
             'signal_processing': {
                 'title': 'Signal Processing',
-                'summary': "Mathematical techniques are essential for cleaning, decoding, and interpreting data transmitted from spacecraft over vast distances. This includes Fourier analysis, error correction codes, and image compression algorithms.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+                'summary': "Mathematical techniques are essential for cleaning, decoding, and interpreting data transmitted from spacecraft over vast distances. This includes Fourier analysis, error correction codes, and image compression.",
+                'experiments': pd.DataFrame({"Technique": ["Error Correction", "Image Compression", "Noise Filtering"], "Applications": [50, 45, 60]}),
+                'knowledge_gaps': {"High-Bandwidth Comms": 55, "Data Compression Ratios": 30, "AI in Signal ID": 15},
+                'actionable': {'Mission Architects': "Design communication systems with appropriate redundancy and error correction.", 'Scientists': "Create novel compression algorithms to maximize data return from deep space.", 'Managers': "Upgrade the Deep Space Network with more powerful signal processing hardware."},
+                'graph_elements': [{'data': {'id': 'signal', 'label': 'Raw Signal'}}, {'data': {'id': 'filter', 'label': 'Noise Filtering'}}, {'data': {'id': 'decode', 'label': 'Decoding'}}, {'data': {'id': 'data', 'label': 'Usable Data'}}, {'data': {'source': 'signal', 'target': 'filter'}}, {'data': {'source': 'filter', 'target': 'decode'}}, {'data': {'source': 'decode', 'target': 'data'}}],
+                 'related_documents': [
+                    {'title': 'Deep Space Network (DSN) - NASA', 'url': 'https://www.nasa.gov/directorates/heo/scan/services/networks/deep_space_network/'},
+                    {'title': 'How NASA Communicates with Faraway Spacecraft', 'url': 'https://www.jpl.nasa.gov/edu/news/2020/4/1/how-nasa-communicates-with-faraway-spacecraft/'}
+                ]
             }
         }
     },
-
-    # --- NEW: Science ---
+    # --- Science ---
     'science': {
         'display_name': 'Science',
         'layout_group': 'sidebar',
         'subtopics': {
             'exoplanetology': {
                 'title': 'Exoplanetology',
-                'summary': "The scientific field dedicated to the discovery and study of exoplanets (planets outside our Solar System). Key methods include transit photometry and radial velocity, with the ultimate goal of finding habitable worlds.",
-                'experiments': pd.DataFrame({
-                    "Mission": ["Kepler", "TESS", "JWST"],
-                    "Discoveries": [2662, 250, 50]
-                }),
+                'summary': "The scientific field dedicated to the discovery and study of exoplanets. Key methods include transit photometry and radial velocity, with the ultimate goal of finding habitable worlds.",
+                'experiments': pd.DataFrame({"Mission": ["Kepler", "TESS", "JWST"], "Discoveries": [2662, 250, 50]}),
                 'knowledge_gaps': {"Biosignatures": 60, "Planet Formation": 25, "Rogue Planets": 15},
-                'actionable': {
-                    'Mission Architects': "Design next-generation telescopes with coronagraphs to directly image exoplanets and analyze their atmospheres.",
-                    'Scientists': "Develop machine learning models to sift through telescope data and identify potential transit signals.",
-                    'Managers': "Prioritize long-term funding for missions capable of atmospheric characterization of Earth-like exoplanets."
-                },
-                'graph_elements': [
-                    {'data': {'id': 'star', 'label': 'Distant Star'}},
-                    {'data': {'id': 'transit', 'label': 'Transit Method'}},
-                    {'data': {'id': 'planet', 'label': 'Exoplanet Detected'}},
-                    {'data': {'id': 'atmosphere', 'label': 'Atmosphere Analysis'}},
-                    {'data': {'id': 'habitability', 'label': 'Habitability?'}},
-                    {'data': {'source': 'star', 'target': 'transit'}},
-                    {'data': {'source': 'transit', 'target': 'planet'}},
-                    {'data': {'source': 'planet', 'target': 'atmosphere'}},
-                    {'data': {'source': 'atmosphere', 'target': 'habitability'}},
+                'actionable': {'Mission Architects': "Design next-generation telescopes with coronagraphs to directly image exoplanets.", 'Scientists': "Develop machine learning models to identify potential transit signals.", 'Managers': "Prioritize funding for missions capable of atmospheric characterization."},
+                'graph_elements': [{'data': {'id': 'star', 'label': 'Distant Star'}}, {'data': {'id': 'transit', 'label': 'Transit Method'}}, {'data': {'id': 'planet', 'label': 'Exoplanet Detected'}}, {'data': {'id': 'atmosphere', 'label': 'Atmosphere Analysis'}}, {'data': {'id': 'habitability', 'label': 'Habitability?'}}, {'data': {'source': 'star', 'target': 'transit'}}, {'data': {'source': 'transit', 'target': 'planet'}}, {'data': {'source': 'planet', 'target': 'atmosphere'}}, {'data': {'source': 'atmosphere', 'target': 'habitability'}}],
+                 'related_documents': [
+                    {'title': 'NASA Exoplanet Exploration Program', 'url': 'https://exoplanets.nasa.gov/'},
+                    {'title': 'How Do We Find Exoplanets? - Hubblesite', 'url': 'https://hubblesite.org/contents/articles/how-do-we-find-exoplanets'}
                 ]
             },
             'planetary_geology': {
                 'title': 'Planetary Geology',
-                'summary': "This discipline, also known as astrogeology, studies the geology of celestial bodies such as planets, moons, asteroids, and comets. It helps us understand the formation and evolution of our solar system.",
-                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-                'knowledge_gaps': {"Awaiting Analysis": 100},
-                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+                'summary': "This discipline, also known as astrogeology, studies the geology of celestial bodies such as planets, moons, asteroids, and comets to understand the formation and evolution of our solar system.",
+                'experiments': pd.DataFrame({"Target": ["Mars (Rovers)", "Moon (Apollo)", "Asteroids (OSIRIS-REx)"], "Missions": [5, 6, 1]}),
+                'knowledge_gaps': {"Cryovolcanism": 40, "Planetary Core Dynamics": 35, "Early Solar System History": 25},
+                'actionable': {'Mission Architects': "Design rovers and landers with drills and seismometers.", 'Scientists': "Analyze returned samples to date geological events.", 'Managers': "Fund sample return missions to diverse celestial bodies like asteroids and comets."},
+                'graph_elements': [{'data': {'id': 'planet', 'label': 'Planet/Moon'}}, {'data': {'id': 'surface', 'label': 'Surface Features'}}, {'data': {'id': 'interior', 'label': 'Interior Structure'}}, {'data': {'id': 'history', 'label': 'Geological History'}}, {'data': {'source': 'planet', 'target': 'surface'}}, {'data': {'source': 'planet', 'target': 'interior'}}, {'data': {'source': 'surface', 'target': 'history'}}],
+                 'related_documents': [
+                    {'title': 'Planetary Geology - NASA Science', 'url': 'https://science.nasa.gov/planetary-science/geology/'},
+                    {'title': 'Mars Science Laboratory (Curiosity Rover)', 'url': 'https://mars.nasa.gov/msl/home/'}
+                ]
             }
         }
     },
-    
     # --- Main Button ---
     'doc_analysis': {
         'display_name': 'Document Analysis (AI)',
@@ -454,124 +436,98 @@ def generate_subtopic_layout(main_topic_key):
 def generate_dashboard_layout(main_topic_key, subtopic_key):
     """Creates the detailed dashboard view for a selected topic or a custom query."""
     
-    # *** CORE LOGIC FIX: Check for the dedicated summarizer flow and return the custom layout ***
     if main_topic_key == 'doc_analysis' and subtopic_key == 'summarizer_mode':
         return generate_summarizer_page_layout()
-    # *****************************************************************************************
 
     # --- Standard Topic/Query Handling ---
     data = {}
-    
-    # CASE 1: Handle a custom query that is not in MOCK_DAT
-    data = {
-            'title': f"On-Demand Analysis for: {subtopic_key.title()}",
-            'summary': "This is a custom query. In a real application, a backend model would generate a summary here based on the search term.",
+    if subtopic_key == 'custom_query':
+        data = {
+            'title': f"On-Demand Analysis for: {main_topic_key.title()}",
+            'summary': "This is a custom query. A backend model would generate a summary here...",
             'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
             'knowledge_gaps': {"Awaiting Analysis": 100},
-            'actionable': {
-                'Mission Architects': "No pre-defined actions for this custom query.",
-                'Scientists': "Further research is required based on this query.",
-                'Managers': "Evaluate the potential of this new research area."
-            },
-            'graph_elements': [
-                {'data': {'id': 'query', 'label': subtopic_key.title()}},
-                {'data': {'id': 'placeholder', 'label': 'Analysis Pending...'}},
-                {'data': {'source': 'query', 'target': 'placeholder'}, 'classes': 'edge'},
-            ]
+            'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
+            'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
         }
-   
+    elif main_topic_key in MOCK_DATA and subtopic_key in MOCK_DATA[main_topic_key].get('subtopics', {}):
+        data = MOCK_DATA[main_topic_key]['subtopics'][subtopic_key]
+    else:
+        return dbc.Alert("Error: Data for this topic could not be found.", color="danger")
 
-    # --- Standard Dashboard Components ---
-    graph_config = {'staticPlot': True}
-    summary_card = create_card("AI-Powered Summary", dcc.Markdown(data['summary']), "bi-robot")
-    knowledge_graph = create_card("Knowledge Graph", cyto.Cytoscape(
-        id='knowledge-graph',
-        layout={'name': 'cose'}, 
-        style={'width': '100%', 'height': '400px'},
-        elements=data['graph_elements'],
-        stylesheet=[
-            {'selector': 'node', 'style': {'label': 'data(label)', 'background-color': '#00bfff', 'color': 'white', 'font-size': '12px'}},
-            {'selector': 'edge', 'style': {'line-color': '#4e5d78', 'width': 2, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#4e5d78'}},
-        ],
-    ), "bi-diagram-3-fill")
-
-    fig_bar = px.bar(
-        data['experiments'], x=data['experiments'].columns[0], y=data['experiments'].columns[1],
-        title='Data Distribution',
-        template=CHART_TEMPLATE, color_discrete_sequence=['#ff69b4']
-    )
-    fig_bar.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-    bar_chart = create_card("Data Distribution", dcc.Graph(figure=fig_bar, config=graph_config, style={'height': '350px'}), "bi-bar-chart-line-fill")
-
-    fig_pie = px.pie(
-        names=list(data['knowledge_gaps'].keys()), values=list(data['knowledge_gaps'].values()),
-        title='Knowledge Gaps', template=CHART_TEMPLATE, hole=0.4,
-        color_discrete_sequence=px.colors.sequential.Plasma_r
-    )
-    fig_pie.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-    pie_chart = create_card("Areas of Study", dcc.Graph(figure=fig_pie, config=graph_config, style={'height': '350px'}), "bi-pie-chart-fill")
-
-    actionable_insights = create_card("Actionable Insights", [
-        dbc.Tabs([
-            dbc.Tab(dcc.Markdown(data['actionable']['Mission Architects']), label="Architects"),
-            dbc.Tab(dcc.Markdown(data['actionable']['Scientists']), label="Scientists"),
-            dbc.Tab(dcc.Markdown(data['actionable']['Managers']), label="Managers"),
-        ])
-    ], "bi-lightbulb-fill")
+    # --- ### ROBUST COMPONENT GENERATION (with corrections) ### ---
     
-    # --- Gemini Document Analysis Tab Content (Reused in the main dashboard) ---
+    summary_text = data.get('summary', 'No summary available for this topic.')
+    summary_card = create_card("AI-Powered Summary", dcc.Markdown(summary_text), "bi-robot")
+
+    graph_elements = data.get('graph_elements', [])
+    # CORRECTED: Added the icon argument "bi-diagram-3-fill"
+    knowledge_graph = create_card(
+        "Knowledge Graph", 
+        cyto.Cytoscape(id='knowledge-graph', layout={'name': 'cose'}, style={'width': '100%', 'height': '400px'}, elements=graph_elements, stylesheet=[{'selector': 'node', 'style': {'label': 'data(label)', 'background-color': '#00bfff', 'color': 'white'}}, {'selector': 'edge', 'style': {'line-color': '#4e5d78', 'width': 2}}]),
+        "bi-diagram-3-fill" 
+    )
+
+    experiments_df = data.get('experiments', pd.DataFrame({'Category': ['No Data'], 'Count': [0]}))
+    # CORRECTED: Added the icon argument "bi-bar-chart-line-fill"
+    bar_chart = create_card(
+        "Data Distribution", 
+        dcc.Graph(figure=px.bar(experiments_df, x=experiments_df.columns[0], y=experiments_df.columns[1], template=CHART_TEMPLATE)),
+        "bi-bar-chart-line-fill"
+    )
+
+    gaps_data = data.get('knowledge_gaps', {'No Data': 100})
+    # CORRECTED: Added the icon argument "bi-pie-chart-fill"
+    pie_chart = create_card(
+        "Areas of Study", 
+        dcc.Graph(figure=px.pie(names=list(gaps_data.keys()), values=list(gaps_data.values()), template=CHART_TEMPLATE, hole=0.4)),
+        "bi-pie-chart-fill"
+    )
+
+    actionable_data = data.get('actionable', {})
+    # CORRECTED: Added the icon argument "bi-lightbulb-fill"
+    actionable_insights = create_card(
+        "Actionable Insights", 
+        [dbc.Tabs([
+            dbc.Tab(dcc.Markdown(actionable_data.get('Mission Architects', 'N/A')), label="Architects"),
+            dbc.Tab(dcc.Markdown(actionable_data.get('Scientists', 'N/A')), label="Scientists"),
+            dbc.Tab(dcc.Markdown(actionable_data.get('Managers', 'N/A')), label="Managers")
+        ])],
+        "bi-lightbulb-fill"
+    )
+    
+    research_links_section = None
+    related_docs_list = data.get('related_documents', [])
+    if related_docs_list:
+        research_links_section = html.Div([
+            html.H5("Related Research Papers", className="mt-4"),
+            dbc.ListGroup(
+                [dbc.ListGroupItem(html.A(doc['title'], href=doc['url'], target="_blank")) for doc in related_docs_list],
+                flush=True
+            )
+        ])
+
     doc_analysis_tab_content = html.Div([
         html.P("Upload a PDF document to get an on-demand summary related to space research.", className="lead"),
-        dbc.Alert(
-            "⚠️ Gemini API Key is not configured. Document Analysis is currently disabled.", 
-            color="warning", 
-            is_open=not GEMINI_AVAILABLE
-        ) if not GEMINI_AVAILABLE else None,
-        
+        dbc.Alert("⚠️ Gemini API Key is not configured...", color="warning", is_open=not GEMINI_AVAILABLE) if not GEMINI_AVAILABLE else None,
         dbc.Row([
-            dbc.Col(dcc.Upload(
-                id='upload-data',
-                children=html.Div(['Drag and Drop or ', html.A('Select a PDF File')]),
-                style={
-                    'width': '100%', 'height': '60px', 'lineHeight': '60px',
-                    'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px',
-                    'textAlign': 'center', 'margin': '10px', 'color': '#00bfff'
-                },
-                multiple=False
-            ), md=6),
-            dbc.Col(dcc.Dropdown(
-                id='summary-length-dropdown',
-                options=[
-                    {'label': 'Executive Summary (200 words)', 'value': 'executive summary (200 words)'},
-                    {'label': '3 Concise Bullet Points', 'value': '3 concise bullet points'},
-                    {'label': 'One Short Paragraph', 'value': 'one short paragraph'},
-                    {'label': 'Detailed Report (500 words)', 'value': 'detailed report (500 words)'}
-                ],
-                value='executive summary (200 words)',
-                clearable=False,
-                style={'color': '#333'} 
-            ), md=4),
-            dbc.Col(dbc.Button(
-                "Summarize Document", 
-                id="summarize-button", 
-                color="primary", 
-                className="mt-3",
-                disabled=not GEMINI_AVAILABLE
-            ), md=2)
+            dbc.Col(dcc.Upload(id='upload-data', children=html.Div(['Drag and Drop or ', html.A('Select a PDF File')]), style={'width': '100%', 'height': '60px', 'lineHeight': '60px', 'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px', 'textAlign': 'center', 'margin': '10px', 'color': '#00bfff'}, multiple=False), md=6),
+            dbc.Col(dcc.Dropdown(id='summary-length-dropdown', options=[{'label': 'Executive Summary (200 words)', 'value': 'executive summary (200 words)'}, {'label': '3 Concise Bullet Points', 'value': '3 concise bullet points'}, {'label': 'One Short Paragraph', 'value': 'one short paragraph'}, {'label': 'Detailed Report (500 words)', 'value': 'detailed report (500 words)'}], value='executive summary (200 words)', clearable=False, style={'color': '#333'}), md=4),
+            dbc.Col(dbc.Button("Summarize Document", id="summarize-button", color="primary", className="mt-3", disabled=not GEMINI_AVAILABLE), md=2)
         ]),
         html.Div(id='upload-filename-display', className="mb-3 text-white-50"),
         html.Div(id='summary-output-container', children=dbc.Alert("Upload a PDF and click 'Summarize Document' to see results.", color="info", className="mt-4")),
+        html.Hr(),
+        research_links_section if research_links_section else ""
     ])
     
-    # --- Dashboard Layout Structure with Tabs ---
     back_button_id = "back-to-subtopics-button" if subtopic_key != 'custom_query' else "back-to-topics-button"
     back_button_text = "Go Back to Subtopics" if subtopic_key != 'custom_query' else "Back to Home"
 
     return html.Div([
         dbc.Button(back_button_text, id=back_button_id, className="mb-3", color="light", outline=True),
-        html.H3(f"{data['title']}", className="text-white mb-4"),
+        html.H3(f"Dashboard for: {data.get('title', main_topic_key.replace('_', ' ').title())}", className="text-white mb-4"),
         
-        # This is the standard view with the two tabs
         dbc.Tabs([
             dbc.Tab(
                 label="Topic Dashboard", 
@@ -582,13 +538,11 @@ def generate_dashboard_layout(main_topic_key, subtopic_key):
                 ])
             ),
             dbc.Tab(
-                label="Document Analysis ", 
+                label="Document Analysis", 
                 children=doc_analysis_tab_content
             ),
-        ], className="mb-4", active_tab="tab-0") 
+        ]),
     ])
-
-
 # --- Main App Layout (Unchanged) ------------------------------------------------------------
 header = dbc.Navbar(
     dbc.Container([
