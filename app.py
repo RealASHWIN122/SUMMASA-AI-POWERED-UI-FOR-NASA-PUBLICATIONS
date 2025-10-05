@@ -65,7 +65,7 @@ def get_pdf_summary_dash(base64_content, filename, summary_length, current_api_k
     }
 
     try:
-        response = requests.post(api_url, json=payload)
+        response = requests.post(api_url, json=payload, timeout=60) 
         response.raise_for_status() 
         result = response.json()
         
@@ -112,7 +112,7 @@ Present the output as a concise, well-structured summary.
     }
 
     try:
-        response = requests.post(api_url, json=payload)
+        response = requests.post(api_url, json=payload, timeout=60)
         response.raise_for_status()
         result = response.json()
         
@@ -127,6 +127,120 @@ Present the output as a concise, well-structured summary.
         print(f"❌ Generic Error during text summarization: {e}")
         return f"An unexpected error occurred: {e}", "danger"
 
+def get_research_distribution(search_term, api_key):
+    """
+    Uses the Gemini API to identify major research sub-fields for a topic
+    and returns a normalized DataFrame for plotting.
+    """
+    if not api_key:
+        print("⚠️ Gemini API key not available for research distribution.")
+        return None
+
+    api_url = f"https://generativelanguage.googleapis.com/v1/models/{MODEL_NAME}:generateContent?key={api_key}"
+
+    prompt = f"""
+    You are a scientific research analyst. For the broad research topic of '{search_term}', identify the 5 to 7 most significant sub-fields or specific areas of study.
+
+    Your response MUST be a single, valid JSON object and nothing else. Do not include markdown formatting like ```json.
+    The keys should be the sub-field names, and the values should be their relative importance or prevalence on a scale of 0 to 100. For example: {{"Quantum Computing": 90, "String Theory": 65}}.
+    """
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+
+    try:
+        print(f"📊 Requesting research distribution for: {search_term}")
+        response = requests.post(api_url, json=payload, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+        
+        json_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
+        
+        if "```json" in json_text:
+            json_text = json_text.split("```json")[1].split("```")[0]
+        
+        research_data = json.loads(json_text)
+
+        if not research_data:
+            return None
+
+        max_score = max(research_data.values()) if research_data.values() else 0
+        if max_score == 0:
+            return pd.DataFrame({"Research Area": research_data.keys(), "Normalized Importance": [0] * len(research_data)})
+
+        normalized_data = {key: value / max_score for key, value in research_data.items()}
+
+        df = pd.DataFrame(list(normalized_data.items()), columns=["Research Area", "Normalized Importance"])
+        print(f"📊 Successfully generated research distribution.")
+        return df
+
+    except Exception as e:
+        print(f"❌ Error getting research distribution: {e}")
+        return None
+
+def get_knowledge_graph_data(search_term, api_key):
+    """
+    Uses the Gemini API to generate knowledge graph elements for a topic.
+    """
+    if not api_key:
+        print("⚠️ Gemini API key not available for knowledge graph generation.")
+        return None
+
+    api_url = f"https://generativelanguage.googleapis.com/v1/models/{MODEL_NAME}:generateContent?key={api_key}"
+
+    prompt = f"""
+    You are a knowledge graph specialist. For the research topic of '{search_term}', identify 5-7 key concepts and their primary relationships.
+
+    Your response MUST be a single, valid JSON object representing a list of graph elements for dash-cytoscape.
+    - Each node should be an object like: {{"data": {{"id": "unique_id", "label": "Concept Name"}}}}
+    - Each edge should be an object like: {{"data": {{"source": "source_id", "target": "target_id"}}}}
+    
+    Do not include any text or markdown formatting like ```json outside of the JSON object itself.
+
+    Example for the topic "Black Holes":
+    [
+        {{"data": {{"id": "black_hole", "label": "Black Hole"}}}},
+        {{"data": {{"id": "singularity", "label": "Singularity"}}}},
+        {{"data": {{"id": "event_horizon", "label": "Event Horizon"}}}},
+        {{"data": {{"id": "gravity", "label": "Strong Gravity"}}}},
+        {{"data": {{"id": "hawking_radiation", "label": "Hawking Radiation"}}}},
+        {{"data": {{"source": "black_hole", "target": "singularity"}}}},
+        {{"data": {{"source": "black_hole", "target": "event_horizon"}}}},
+        {{"data": {{"source": "black_hole", "target": "gravity"}}}},
+        {{"data": {{"source": "event_horizon", "target": "hawking_radiation"}}}}
+    ]
+    """
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+
+    try:
+        print(f"🕸️ Requesting knowledge graph for: {search_term}")
+        response = requests.post(api_url, json=payload, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+        
+        json_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '[]')
+        
+        if "```json" in json_text:
+            json_text = json_text.split("```json")[1].split("```")[0]
+        
+        graph_elements = json.loads(json_text)
+
+        if not isinstance(graph_elements, list):
+            print(f"❌ Knowledge graph response was not a list: {graph_elements}")
+            return None
+
+        print(f"🕸️ Successfully generated knowledge graph.")
+        return graph_elements
+
+    except Exception as e:
+        print(f"❌ Error getting knowledge graph: {e}")
+        return None
+
+
 # =========================================================================
 
 # --- MOCK DATA ---
@@ -138,7 +252,6 @@ MOCK_DATA = {
                 'title': 'Classical Mechanics',
                 'summary': "Classical mechanics deals with the motion of macroscopic objects, from projectiles to parts of machinery, and astronomical objects. It's foundational to understanding forces like gravity and momentum as described by Newton's Laws of Motion.",
                 'experiments': pd.DataFrame({"Object Type": ["Satellites", "Projectiles", "Planetary Orbits", "Robotic Arms"], "Studies": [25, 18, 15, 11]}),
-                'knowledge_gaps': {"Orbital Decay": 40, "N-Body Problem": 35, "Material Stress": 25},
                 'actionable': {
                     'Mission Architects': "Utilize gravitational assists for interplanetary missions to conserve fuel.",
                     'Scientists': "Investigate the long-term stability of orbits in multi-body systems.",
@@ -155,7 +268,6 @@ MOCK_DATA = {
                 'title': 'Quantum Mechanics',
                 'summary': "Quantum mechanics governs the behavior of matter and light on the atomic and subatomic scale. Its applications in space include ultra-precise atomic clocks for navigation, quantum sensors, and future quantum communication networks.",
                 'experiments': pd.DataFrame({"Application": ["Atomic Clocks", "Quantum Sensing", "Quantum Communication"], "Missions": [30, 8, 3]}),
-                'knowledge_gaps': {"Decoherence in Space": 50, "Entanglement Distribution": 40, "Quantum Computing": 10},
                 'actionable': {'Mission Architects': "Integrate next-gen atomic clocks for improved GPS and deep space navigation.", 'Scientists': "Develop quantum sensors for detecting gravitational waves and dark matter.", 'Managers': "Invest in foundational research for secure space-to-ground quantum communication."},
                 'graph_elements': [{'data': {'id': 'qm', 'label': 'Quantum Mechanics'}}, {'data': {'id': 'clock', 'label': 'Atomic Clocks'}}, {'data': {'id': 'comm', 'label': 'Quantum Communication'}}, {'data': {'source': 'qm', 'target': 'clock'}}, {'data': {'source': 'qm', 'target': 'comm'}}],
                 'related_documents': [
@@ -167,7 +279,6 @@ MOCK_DATA = {
                 'title': 'Thermodynamics',
                 'summary': "Thermodynamics in space applications deals with heat management, power generation, and engine efficiency. This includes designing thermal protection systems for re-entry and powering deep space probes with Radioisotope Thermoelectric Generators (RTGs).",
                 'experiments': pd.DataFrame({"System": ["Heat Shields", "RTGs", "Cryocoolers"], "Applications": [40, 27, 15]}),
-                'knowledge_gaps': {"High-Temp Materials": 45, "Power Efficiency": 35, "Cryogenic Storage": 20},
                 'actionable': {'Mission Architects': "Design missions like the Parker Solar Probe with robust thermal shielding.", 'Scientists': "Research more efficient thermoelectric materials for next-generation RTGs.", 'Managers': "Fund research into mitigating boil-off of cryogenic propellants for long-duration missions."},
                 'graph_elements': [{'data': {'id': 'thermo', 'label': 'Thermodynamics'}}, {'data': {'id': 'heat', 'label': 'Heat Management'}}, {'data': {'id': 'power', 'label': 'Power Generation'}}, {'data': {'source': 'thermo', 'target': 'heat'}}, {'data': {'source': 'thermo', 'target': 'power'}}],
                 'related_documents': [
@@ -186,7 +297,6 @@ MOCK_DATA = {
                 'title': 'Astrochemistry',
                 'summary': "Astrochemistry is the study of molecules in the Universe and their reactions. It is crucial for understanding the formation of stars, planets, and the potential for life beyond Earth.",
                 'experiments': pd.DataFrame({"Method": ["Radio Telescopes", "Space Probes", "Lab Simulations"], "Detections": [150, 45, 90]}),
-                'knowledge_gaps': {"Prebiotic Molecules": 50, "Isotopic Ratios": 30, "Reaction Pathways": 20},
                 'actionable': {'Mission Architects': "Equip probes with advanced spectrometers.", 'Scientists': "Model chemical reactions in interstellar conditions.", 'Managers': "Support interdisciplinary projects combining astronomy and chemistry."},
                 'graph_elements': [{'data': {'id': 'clouds', 'label': 'Interstellar Clouds'}}, {'data': {'id': 'molecules', 'label': 'Simple Molecules'}}, {'data': {'id': 'organics', 'label': 'Complex Organics'}}, {'data': {'id': 'life', 'label': 'Origin of Life?'}}, {'data': {'source': 'clouds', 'target': 'molecules'}}, {'data': {'source': 'molecules', 'target': 'organics'}}, {'data': {'source': 'organics', 'target': 'life'}}],
                 'related_documents': [
@@ -198,7 +308,6 @@ MOCK_DATA = {
                 'title': 'Propellant Chemistry',
                 'summary': "The study of chemical propellants is vital for launch vehicles and spacecraft. Research focuses on increasing efficiency (specific impulse), stability, and storability of fuels and oxidizers.",
                 'experiments': pd.DataFrame({"Type": ["Cryogenic", "Hypergolic", "Solid"], "Use Cases": [22, 18, 35]}),
-                'knowledge_gaps': {"Methane Engines": 40, "Green Propellants": 35, "Long-term Storage": 25},
                 'actionable': {'Mission Architects': "Select propellant types based on mission duration and thrust requirements.", 'Scientists': "Develop catalysts for more efficient green propellants to replace toxic hypergolics.", 'Managers': "Invest in infrastructure for in-situ resource utilization (e.g., creating methane on Mars)."},
                 'graph_elements': [{'data': {'id': 'prop', 'label': 'Propellants'}}, {'data': {'id': 'launch', 'label': 'Launch'}}, {'data': {'id': 'maneuver', 'label': 'In-Space Maneuvers'}}, {'data': {'source': 'prop', 'target': 'launch'}}, {'data': {'source': 'prop', 'target': 'maneuver'}}],
                 'related_documents': [
@@ -217,7 +326,6 @@ MOCK_DATA = {
                 'title': 'Orbital Mechanics',
                 'summary': "Also known as astrodynamics, this is the application of ballistics and celestial mechanics to the practical problems concerning the motion of rockets and other spacecraft.",
                 'experiments': pd.DataFrame({"Application": ["Satellite Deployment", "Interplanetary Travel", "Debris Tracking"], "Missions": [1000, 50, 200]}),
-                'knowledge_gaps': {"Low-Thrust Optimization": 45, "N-Body Problem": 35, "Chaotic Systems": 20},
                 'actionable': {'Mission Architects': "Design fuel-efficient trajectories using Hohmann transfers.", 'Scientists': "Develop algorithms to solve the n-body problem for constellations.", 'Managers': "Invest in collision avoidance systems."},
                 'graph_elements': [{'data': {'id': 'kepler', 'label': "Kepler's Laws"}}, {'data': {'id': 'trajectory', 'label': 'Trajectory Calculation'}}, {'data': {'id': 'hohmann', 'label': 'Hohmann Transfer'}}, {'data': {'id': 'success', 'label': 'Mission Success'}}, {'data': {'source': 'kepler', 'target': 'trajectory'}}, {'data': {'source': 'trajectory', 'target': 'hohmann'}}, {'data': {'source': 'hohmann', 'target': 'success'}}],
                  'related_documents': [
@@ -229,7 +337,6 @@ MOCK_DATA = {
                 'title': 'Signal Processing',
                 'summary': "Mathematical techniques are essential for cleaning, decoding, and interpreting data transmitted from spacecraft over vast distances. This includes Fourier analysis, error correction codes, and image compression.",
                 'experiments': pd.DataFrame({"Technique": ["Error Correction", "Image Compression", "Noise Filtering"], "Applications": [50, 45, 60]}),
-                'knowledge_gaps': {"High-Bandwidth Comms": 55, "Data Compression Ratios": 30, "AI in Signal ID": 15},
                 'actionable': {'Mission Architects': "Design communication systems with appropriate redundancy and error correction.", 'Scientists': "Create novel compression algorithms to maximize data return from deep space.", 'Managers': "Upgrade the Deep Space Network with more powerful signal processing hardware."},
                 'graph_elements': [{'data': {'id': 'signal', 'label': 'Raw Signal'}}, {'data': {'id': 'filter', 'label': 'Noise Filtering'}}, {'data': {'id': 'decode', 'label': 'Decoding'}}, {'data': {'id': 'data', 'label': 'Usable Data'}}, {'data': {'source': 'signal', 'target': 'filter'}}, {'data': {'source': 'filter', 'target': 'decode'}}, {'data': {'source': 'decode', 'target': 'data'}}],
                  'related_documents': [
@@ -248,7 +355,6 @@ MOCK_DATA = {
                 'title': 'Exoplanetology',
                 'summary': "The scientific field dedicated to the discovery and study of exoplanets. Key methods include transit photometry and radial velocity, with the ultimate goal of finding habitable worlds.",
                 'experiments': pd.DataFrame({"Mission": ["Kepler", "TESS", "JWST"], "Discoveries": [2662, 250, 50]}),
-                'knowledge_gaps': {"Biosignatures": 60, "Planet Formation": 25, "Rogue Planets": 15},
                 'actionable': {'Mission Architects': "Design next-generation telescopes with coronagraphs to directly image exoplanets.", 'Scientists': "Develop machine learning models to identify potential transit signals.", 'Managers': "Prioritize funding for missions capable of atmospheric characterization."},
                 'graph_elements': [{'data': {'id': 'star', 'label': 'Distant Star'}}, {'data': {'id': 'transit', 'label': 'Transit Method'}}, {'data': {'id': 'planet', 'label': 'Exoplanet Detected'}}, {'data': {'id': 'atmosphere', 'label': 'Atmosphere Analysis'}}, {'data': {'id': 'habitability', 'label': 'Habitability?'}}, {'data': {'source': 'star', 'target': 'transit'}}, {'data': {'source': 'transit', 'target': 'planet'}}, {'data': {'source': 'planet', 'target': 'atmosphere'}}, {'data': {'source': 'atmosphere', 'target': 'habitability'}}],
                  'related_documents': [
@@ -260,7 +366,6 @@ MOCK_DATA = {
                 'title': 'Planetary Geology',
                 'summary': "This discipline, also known as astrogeology, studies the geology of celestial bodies such as planets, moons, asteroids, and comets to understand the formation and evolution of our solar system.",
                 'experiments': pd.DataFrame({"Target": ["Mars (Rovers)", "Moon (Apollo)", "Asteroids (OSIRIS-REx)"], "Missions": [5, 6, 1]}),
-                'knowledge_gaps': {"Cryovolcanism": 40, "Planetary Core Dynamics": 35, "Early Solar System History": 25},
                 'actionable': {'Mission Architects': "Design rovers and landers with drills and seismometers.", 'Scientists': "Analyze returned samples to date geological events.", 'Managers': "Fund sample return missions to diverse celestial bodies like asteroids and comets."},
                 'graph_elements': [{'data': {'id': 'planet', 'label': 'Planet/Moon'}}, {'data': {'id': 'surface', 'label': 'Surface Features'}}, {'data': {'id': 'interior', 'label': 'Interior Structure'}}, {'data': {'id': 'history', 'label': 'Geological History'}}, {'data': {'source': 'planet', 'target': 'surface'}}, {'data': {'source': 'planet', 'target': 'interior'}}, {'data': {'source': 'surface', 'target': 'history'}}],
                  'related_documents': [
@@ -430,7 +535,7 @@ def generate_subtopic_layout(main_topic_key):
         }
     )
 
-def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None, generated_summary=None):
+def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None, generated_summary=None, research_distribution_data=None, knowledge_graph_data=None):
     """Creates the detailed dashboard view, now with automatic summary display."""
     if main_topic_key == 'doc_analysis' and subtopic_key == 'summarizer_mode':
         return generate_summarizer_page_layout()
@@ -439,19 +544,19 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
     if subtopic_key == 'custom_query':
         data = {
             'title': f"On-Demand Analysis for: {main_topic_key.title()}",
-            # Use the generated summary if available, otherwise show a loading message.
             'summary': generated_summary if generated_summary else "Performing search and analysis...",
-            'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-            'knowledge_gaps': {"Awaiting Analysis": 100},
+            'experiments': pd.DataFrame({"Category": ["Awaiting Analysis"], "Count": [0]}),
             'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-            'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Analysis in Progress'}}]
+            'graph_elements': knowledge_graph_data if knowledge_graph_data else [{'data': {'id': 'placeholder', 'label': 'Analysis in Progress'}}]
         }
+        if research_distribution_data:
+            data['experiments'] = pd.read_json(research_distribution_data, orient='split')
+
     elif main_topic_key in MOCK_DATA and subtopic_key in MOCK_DATA[main_topic_key].get('subtopics', {}):
         data = MOCK_DATA[main_topic_key]['subtopics'][subtopic_key]
     else:
         return dbc.Alert("Error: Data for this topic could not be found.", color="danger")
 
-    # --- ### ROBUST COMPONENT GENERATION ### ---
     summary_text = data.get('summary', 'No summary available for this topic.')
     summary_card = create_card("AI-Powered Summary", dcc.Markdown(summary_text, link_target="_blank"), "bi-robot")
 
@@ -465,15 +570,14 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
     experiments_df = data.get('experiments', pd.DataFrame({'Category': ['No Data'], 'Count': [0]}))
     bar_chart = create_card(
         "Data Distribution",
-        dcc.Graph(figure=px.bar(experiments_df, x=experiments_df.columns[0], y=experiments_df.columns[1], template=CHART_TEMPLATE)),
+        dcc.Graph(figure=px.bar(
+            experiments_df, 
+            x=experiments_df.columns[0], 
+            y=experiments_df.columns[1], 
+            template=CHART_TEMPLATE,
+            range_y=[0, 1] if subtopic_key == 'custom_query' else None
+        )),
         "bi-bar-chart-line-fill"
-    )
-
-    gaps_data = data.get('knowledge_gaps', {'No Data': 100})
-    pie_chart = create_card(
-        "Areas of Study",
-        dcc.Graph(figure=px.pie(names=list(gaps_data.keys()), values=list(gaps_data.values()), template=CHART_TEMPLATE, hole=0.4)),
-        "bi-pie-chart-fill"
     )
 
     actionable_data = data.get('actionable', {})
@@ -496,7 +600,6 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
         )
         scraped_results_card = create_card(
             "Scraped Document Results",
-            # The download status container is no longer needed here as navigation will occur
             [document_buttons],
             "bi-search"
         )
@@ -504,14 +607,13 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
     back_button_id = "back-to-subtopics-button" if subtopic_key != 'custom_query' else "back-to-topics-button"
     back_button_text = "Go Back to Subtopics" if subtopic_key != 'custom_query' else "Back to Home"
 
-    # --- Assemble final layout ---
     return html.Div([
         dbc.Button(back_button_text, id=back_button_id, className="mb-3", color="light", outline=True),
         html.H3(f"Dashboard for: {data.get('title', main_topic_key.replace('_', ' ').title())}", className="text-white mb-4"),
         
         dbc.Row([
             dbc.Col(summary_card, md=7),
-            dbc.Col([bar_chart, pie_chart], md=5)
+            dbc.Col(bar_chart, md=5) 
         ]),
         dbc.Row([
             dbc.Col(knowledge_graph, md=7),
@@ -522,7 +624,6 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
         ])
     ])
 
-# <<< START: NEW LAYOUT FUNCTION FOR INDIVIDUAL PDF SUMMARY >>>
 def generate_individual_pdf_summary_layout(summary_title, summary_content):
     """Generates the dedicated page for displaying a single PDF summary."""
     if not summary_content:
@@ -533,7 +634,6 @@ def generate_individual_pdf_summary_layout(summary_title, summary_content):
         html.H3(f"AI Summary for: {summary_title}", className="text-white mb-4"),
         create_card("PDF Document Summary", dcc.Markdown(summary_content), "bi-file-earmark-text-fill")
     ], className="p-4")
-# <<< END: NEW LAYOUT FUNCTION >>>
 
 # --- Main App Layout ---
 header = dbc.Navbar(
@@ -554,7 +654,6 @@ header = dbc.Navbar(
 )
 
 app.layout = html.Div([
-    # <<< MODIFIED: Added new keys to the store >>>
     dcc.Store(id='app-state', data={
         'view': 'landing', 
         'main_topic': None, 
@@ -564,9 +663,10 @@ app.layout = html.Div([
         'scraped_results': None, 
         'generated_summary': None,
         'individual_pdf_summary': None,
-        'individual_pdf_title': None
+        'individual_pdf_title': None,
+        'research_distribution_data': None,
+        'knowledge_graph_data': None # New key for the graph data
     }),
-    # <<< END MODIFICATION >>>
     header,
     dcc.Loading(id="loading-spinner", type="circle", children=html.Div(id="page-content"))
 ])
@@ -582,15 +682,15 @@ def router(data):
             data.get('main_topic'),
             data.get('subtopic'),
             data.get('scraped_results'),
-            data.get('generated_summary')
+            data.get('generated_summary'),
+            data.get('research_distribution_data'),
+            data.get('knowledge_graph_data') # Pass new data to layout
         ), className="p-4")
-    # <<< START: NEW ROUTE FOR PDF SUMMARY VIEW >>>
     elif view == 'pdf_summary_view':
         return generate_individual_pdf_summary_layout(
             data.get('individual_pdf_title'),
             data.get('individual_pdf_summary')
         )
-    # <<< END: NEW ROUTE >>>
     return html.Div("404 - Page not found")
 
 # --- CALLBACKS ---
@@ -634,7 +734,10 @@ def search_topic(n_clicks, search_value, current_state):
         raise dash.exceptions.PreventUpdate
 
     topic_key = (search_value or '').lower().strip()
+    # Reset relevant parts of the state for a new search
     current_state['generated_summary'] = None 
+    current_state['research_distribution_data'] = None
+    current_state['knowledge_graph_data'] = None
 
     if topic_key in MOCK_DATA:
         if 'subtopics' not in MOCK_DATA[topic_key]:
@@ -649,17 +752,19 @@ def search_topic(n_clicks, search_value, current_state):
         
         if results:
             docs_with_abstracts = get_abstracts_from_results(DRIVER, results)
-            combined_text = "\n\n---\n\n".join(
-                f"Title: {doc['title']}\nAbstract: {doc.get('abstract', 'N/A')}" 
-                for doc in docs_with_abstracts
-            )
+            combined_text = "\n\n---\n\n".join(f"Title: {doc['title']}\nAbstract: {doc.get('abstract', 'N/A')}" for doc in docs_with_abstracts)
             summary, status = get_text_summary_dash(combined_text, search_value, GEMINI_API_KEY)
-            if status == 'success':
-                current_state['generated_summary'] = summary
-            else:
-                current_state['generated_summary'] = f"**Error during summarization:**\n\n{summary}"
+            current_state['generated_summary'] = summary if status == 'success' else f"**Error during summarization:**\n\n{summary}"
         else:
             current_state['generated_summary'] = f"No documents were found for the search term: '{search_value}'"
+        
+        dist_df = get_research_distribution(search_value, GEMINI_API_KEY)
+        if dist_df is not None:
+            current_state['research_distribution_data'] = dist_df.to_json(orient='split')
+
+        graph_data = get_knowledge_graph_data(search_value, GEMINI_API_KEY)
+        if graph_data:
+            current_state['knowledge_graph_data'] = graph_data
 
         current_state['scraped_results'] = {'documents': results, 'full_data': results} if results else None
         current_state['view'] = 'dashboard'
@@ -676,26 +781,44 @@ def search_topic(n_clicks, search_value, current_state):
 def select_main_topic(n_clicks_list, logo_clicks, home_nav_clicks):
     triggered_id = ctx.triggered_id
     if not triggered_id: raise dash.exceptions.PreventUpdate
+    
+    reset_state = {
+        'view': 'landing', 'main_topic': None, 'subtopic': None, 'uploaded_data': None, 
+        'uploaded_filename': None, 'scraped_results': None, 'generated_summary': None,
+        'individual_pdf_summary': None, 'individual_pdf_title': None, 'research_distribution_data': None,
+        'knowledge_graph_data': None
+    }
 
     if isinstance(triggered_id, str) and triggered_id in ('logo-home-link', 'home-nav-link'):
-        return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
+        return reset_state
     elif isinstance(triggered_id, dict) and triggered_id.get('type') == 'topic-button':
         main_topic_key = triggered_id['index']
         if 'subtopics' not in MOCK_DATA.get(main_topic_key, {}):
-            subtopic_key = MOCK_DATA[main_topic_key]['default_subtopic']
-            return {'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': subtopic_key, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
-        return {'view': 'subtopic_selection', 'main_topic': main_topic_key, 'subtopic': None, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
+            reset_state.update({'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': MOCK_DATA[main_topic_key]['default_subtopic']})
+            return reset_state
+        reset_state.update({'view': 'subtopic_selection', 'main_topic': main_topic_key})
+        return reset_state
     raise dash.exceptions.PreventUpdate
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
     Input({'type': 'subtopic-button', 'main_topic': ALL, 'subtopic_key': ALL}, 'n_clicks'),
+    State('app-state', 'data'),
     prevent_initial_call=True
 )
-def select_subtopic(n_clicks):
+def select_subtopic(n_clicks, current_state):
     if not ctx.triggered_id: raise dash.exceptions.PreventUpdate
     button_id = ctx.triggered_id
-    return {'view': 'dashboard', 'main_topic': button_id['main_topic'], 'subtopic': button_id['subtopic_key'], 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
+    current_state.update({
+        'view': 'dashboard', 
+        'main_topic': button_id['main_topic'], 
+        'subtopic': button_id['subtopic_key'],
+        'scraped_results': None, 
+        'generated_summary': None,
+        'research_distribution_data': None,
+        'knowledge_graph_data': None
+    })
+    return current_state
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -704,7 +827,12 @@ def select_subtopic(n_clicks):
 )
 def go_back_to_topics(n_clicks):
     if not n_clicks: raise dash.exceptions.PreventUpdate
-    return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
+    return {
+        'view': 'landing', 'main_topic': None, 'subtopic': None, 'uploaded_data': None, 
+        'uploaded_filename': None, 'scraped_results': None, 'generated_summary': None,
+        'individual_pdf_summary': None, 'individual_pdf_title': None, 'research_distribution_data': None,
+        'knowledge_graph_data': None
+    }
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -714,10 +842,16 @@ def go_back_to_topics(n_clicks):
 )
 def go_back_to_subtopics(n_clicks, current_state):
     if not n_clicks: raise dash.exceptions.PreventUpdate
-    current_state.update({'view': 'subtopic_selection', 'subtopic': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None})
+    current_state.update({
+        'view': 'subtopic_selection', 
+        'subtopic': None, 
+        'generated_summary': None,
+        'scraped_results': None,
+        'research_distribution_data': None,
+        'knowledge_graph_data': None
+    })
     return current_state
 
-# <<< START: MODIFIED CALLBACK FOR DOCUMENT CLICK AND SUMMARIZATION >>>
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
     Input({'type': 'doc-title-button', 'index': ALL}, 'n_clicks'),
@@ -755,7 +889,10 @@ def handle_document_click_and_summarize(n_clicks, app_state):
             else:
                 app_state['individual_pdf_summary'] = f"**Failed to generate summary for {clicked_doc_title}:**\n\n{summary}"
             
-            os.remove(pdf_path)
+            try:
+                os.remove(pdf_path)
+            except OSError as e:
+                print(f"Error removing file {pdf_path}: {e}")
 
         except Exception as e:
             app_state['individual_pdf_summary'] = f"**An error occurred while processing the PDF:**\n\n`{e}`"
@@ -766,9 +903,7 @@ def handle_document_click_and_summarize(n_clicks, app_state):
     app_state['individual_pdf_title'] = clicked_doc_title
     app_state['view'] = 'pdf_summary_view'
     return app_state
-# <<< END: MODIFIED CALLBACK >>>
 
-# <<< START: NEW CALLBACK TO GO BACK TO DASHBOARD >>>
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
     Input('back-to-dashboard-button', 'n_clicks'),
@@ -782,7 +917,6 @@ def go_back_to_dashboard(n_clicks, current_state):
     current_state['individual_pdf_summary'] = None
     current_state['individual_pdf_title'] = None
     return current_state
-# <<< END: NEW CALLBACK >>>
 
 if __name__ == '__main__':
     app.run(debug=True)
