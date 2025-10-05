@@ -1,11 +1,14 @@
 import os
 import time
 import requests
+from urllib.parse import urljoin
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 
 
@@ -33,33 +36,47 @@ def download_nslsl_pdf(selected_url: str, download_dir: str = "downloads") -> st
     downloaded_pdf = None
 
     try:
-        print(f"📄 Opening selected NSLSL document: {selected_url}")
+        print(f"📄 Opening NSLSL document: {selected_url}")
         driver.get(selected_url)
-        time.sleep(5)  # Wait for the attachment section to load fully
 
+        # Wait for the attachment section or give up after 15 seconds
         try:
-            # Locate attachment link
-            attachment = driver.find_element(By.CSS_SELECTOR, "ul li a[href*='/NSLSL/Search/Download/']")
-            pdf_href = attachment.get_attribute("href")
-            pdf_name = attachment.text.strip() or "document.pdf"
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "h6.detailSubHeader"))
+            )
+            time.sleep(3)  # give JS a moment to populate attachments
+        except TimeoutException:
+            print("⚠️ Timeout waiting for page content to load.")
+            return None
 
-            # Prepare save path
-            pdf_path = os.path.join(download_dir, pdf_name)
-            print(f"→ Found attachment: {pdf_name}")
+        # Try to locate any PDF link in the Attachments section
+        attachments = driver.find_elements(By.CSS_SELECTOR, "ul li a[href*='/NSLSL/Search/Download/']")
+        if not attachments:
+            print("⚠️ No attachment found on this page.")
+            return None
 
-            # Download using requests
-            with requests.get(pdf_href, stream=True) as r:
-                if r.status_code == 200:
-                    with open(pdf_path, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                    downloaded_pdf = pdf_path
-                    print(f"✅ Downloaded successfully: {pdf_path}")
-                else:
-                    print(f"⚠️ Failed to download (HTTP {r.status_code}): {pdf_href}")
+        # Pick the first PDF link (or you can loop if you want all)
+        attachment = attachments[0]
+        pdf_href = attachment.get_attribute("href")
 
-        except NoSuchElementException:
-            print("⚠️ No attachment found for this document.")
+        # Convert relative href to absolute URL
+        pdf_url = urljoin(selected_url, pdf_href)
+        pdf_name = attachment.text.strip() or "document.pdf"
+        pdf_path = os.path.join(download_dir, pdf_name)
+
+        print(f"→ Found attachment: {pdf_name}")
+        print(f"→ Downloading from: {pdf_url}")
+
+        # Download file
+        response = requests.get(pdf_url, stream=True)
+        if response.status_code == 200:
+            with open(pdf_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            downloaded_pdf = pdf_path
+            print(f"✅ Downloaded successfully: {pdf_path}")
+        else:
+            print(f"⚠️ Failed to download (HTTP {response.status_code})")
 
     except Exception as e:
         print(f"❌ Error processing document: {e}")
@@ -71,11 +88,10 @@ def download_nslsl_pdf(selected_url: str, download_dir: str = "downloads") -> st
 
 # --- Example standalone usage ---
 if __name__ == "__main__":
-    # Example NSLSL document (replace dynamically in your program)
-    doc_url = "https://extapps.ksc.nasa.gov/NSLSL/Search/DetailsForId/20820"
+    # 🔹 Replace this with any NSLSL DetailsForId link that has an attachment
+    doc_url = "https://extapps.ksc.nasa.gov/NSLSL/Search/DetailsForID/20820"
 
     result = download_nslsl_pdf(doc_url)
-
     if result:
         print(f"\n📂 File saved at: {result}")
     else:
