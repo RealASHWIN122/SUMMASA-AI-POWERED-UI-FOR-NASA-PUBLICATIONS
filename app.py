@@ -18,8 +18,6 @@ from selenium.webdriver.chrome.options import Options
 # Make sure you have the updated nslsl_scraper.py in the same directory
 from nslsl_scraper import scrape_nslsl_search_results, download_nslsl_pdf, get_abstracts_from_results
 
-# REMOVED all google.generativeai imports as we are now using direct REST calls
-
 # =========================================================================
 # === WEB DRIVER & GEMINI MANAGEMENT ===
 # =========================================================================
@@ -92,9 +90,6 @@ def get_text_summary_dash(combined_text, search_term, current_api_key):
 
     system_instruction = "You are a research analyst specializing in synthesizing information from multiple scientific abstracts. Your task is to identify key themes, common findings, and notable conclusions from the provided texts."
     
-    # --- THIS BLOCK IS CORRECTED ---
-    # Combine the system instruction and the user prompt into a single prompt string.
-    # This avoids using the 'systemInstruction' field which was causing the API error.
     full_prompt = f"""**System Instruction:**
 {system_instruction}
 
@@ -115,7 +110,6 @@ Present the output as a concise, well-structured summary.
     payload = {
         "contents": [{"parts": [{"text": full_prompt}]}]
     }
-    # --- END CORRECTION ---
 
     try:
         response = requests.post(api_url, json=payload)
@@ -502,7 +496,8 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
         )
         scraped_results_card = create_card(
             "Scraped Document Results",
-            [document_buttons, html.Div(id="download-status-container", className="mt-3")],
+            # The download status container is no longer needed here as navigation will occur
+            [document_buttons],
             "bi-search"
         )
 
@@ -527,6 +522,19 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
         ])
     ])
 
+# <<< START: NEW LAYOUT FUNCTION FOR INDIVIDUAL PDF SUMMARY >>>
+def generate_individual_pdf_summary_layout(summary_title, summary_content):
+    """Generates the dedicated page for displaying a single PDF summary."""
+    if not summary_content:
+        summary_content = "No summary could be generated for this document."
+
+    return html.Div([
+        dbc.Button("Back to Search Results", id="back-to-dashboard-button", className="mb-3", color="light", outline=True),
+        html.H3(f"AI Summary for: {summary_title}", className="text-white mb-4"),
+        create_card("PDF Document Summary", dcc.Markdown(summary_content), "bi-file-earmark-text-fill")
+    ], className="p-4")
+# <<< END: NEW LAYOUT FUNCTION >>>
+
 # --- Main App Layout ---
 header = dbc.Navbar(
     dbc.Container([
@@ -546,7 +554,19 @@ header = dbc.Navbar(
 )
 
 app.layout = html.Div([
-    dcc.Store(id='app-state', data={'view': 'landing', 'main_topic': None, 'subtopic': None, 'uploaded_data': None, 'uploaded_filename': None, 'scraped_results': None, 'generated_summary': None}),
+    # <<< MODIFIED: Added new keys to the store >>>
+    dcc.Store(id='app-state', data={
+        'view': 'landing', 
+        'main_topic': None, 
+        'subtopic': None, 
+        'uploaded_data': None, 
+        'uploaded_filename': None, 
+        'scraped_results': None, 
+        'generated_summary': None,
+        'individual_pdf_summary': None,
+        'individual_pdf_title': None
+    }),
+    # <<< END MODIFICATION >>>
     header,
     dcc.Loading(id="loading-spinner", type="circle", children=html.Div(id="page-content"))
 ])
@@ -562,8 +582,15 @@ def router(data):
             data.get('main_topic'),
             data.get('subtopic'),
             data.get('scraped_results'),
-            data.get('generated_summary') # Pass the summary to the layout function
+            data.get('generated_summary')
         ), className="p-4")
+    # <<< START: NEW ROUTE FOR PDF SUMMARY VIEW >>>
+    elif view == 'pdf_summary_view':
+        return generate_individual_pdf_summary_layout(
+            data.get('individual_pdf_title'),
+            data.get('individual_pdf_summary')
+        )
+    # <<< END: NEW ROUTE >>>
     return html.Div("404 - Page not found")
 
 # --- CALLBACKS ---
@@ -591,7 +618,6 @@ def generate_summary_from_upload(n_clicks, app_state, summary_length):
     uploaded_data = app_state.get('uploaded_data')
     uploaded_filename = app_state.get('uploaded_filename')
     if not uploaded_data: return dbc.Alert("Please upload a PDF file first.", color="warning")
-    # --- THIS LINE IS CORRECTED ---
     summary, status = get_pdf_summary_dash(uploaded_data, uploaded_filename, summary_length, GEMINI_API_KEY)
     return create_card(f"Gemini Summary: {uploaded_filename}", dcc.Markdown(summary), "bi-file-earmark-text-fill") if status == 'success' else dbc.Alert(summary, color=status)
 
@@ -608,7 +634,6 @@ def search_topic(n_clicks, search_value, current_state):
         raise dash.exceptions.PreventUpdate
 
     topic_key = (search_value or '').lower().strip()
-    # Reset generated summary on new search
     current_state['generated_summary'] = None 
 
     if topic_key in MOCK_DATA:
@@ -620,31 +645,22 @@ def search_topic(n_clicks, search_value, current_state):
         return current_state, None
     else:
         print(f"🔍 Custom search triggered for: {search_value}")
-        # Step 1: Get the list of documents
         results = scrape_nslsl_search_results(DRIVER, search_value)
         
         if results:
-            # Step 2: Scrape the abstracts for the found documents
             docs_with_abstracts = get_abstracts_from_results(DRIVER, results)
-            
-            # Step 3: Combine abstracts into a single text block
             combined_text = "\n\n---\n\n".join(
                 f"Title: {doc['title']}\nAbstract: {doc.get('abstract', 'N/A')}" 
                 for doc in docs_with_abstracts
             )
-
-            # Step 4: Generate the AI summary
-            # --- THIS LINE IS CORRECTED ---
             summary, status = get_text_summary_dash(combined_text, search_value, GEMINI_API_KEY)
             if status == 'success':
                 current_state['generated_summary'] = summary
             else:
-                # Store the error message to display it
                 current_state['generated_summary'] = f"**Error during summarization:**\n\n{summary}"
         else:
             current_state['generated_summary'] = f"No documents were found for the search term: '{search_value}'"
 
-        # Step 5: Update the application state to show the dashboard
         current_state['scraped_results'] = {'documents': results, 'full_data': results} if results else None
         current_state['view'] = 'dashboard'
         current_state['main_topic'] = search_value
@@ -662,13 +678,13 @@ def select_main_topic(n_clicks_list, logo_clicks, home_nav_clicks):
     if not triggered_id: raise dash.exceptions.PreventUpdate
 
     if isinstance(triggered_id, str) and triggered_id in ('logo-home-link', 'home-nav-link'):
-        return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None, 'generated_summary': None}
+        return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
     elif isinstance(triggered_id, dict) and triggered_id.get('type') == 'topic-button':
         main_topic_key = triggered_id['index']
         if 'subtopics' not in MOCK_DATA.get(main_topic_key, {}):
             subtopic_key = MOCK_DATA[main_topic_key]['default_subtopic']
-            return {'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': subtopic_key, 'scraped_results': None, 'generated_summary': None}
-        return {'view': 'subtopic_selection', 'main_topic': main_topic_key, 'subtopic': None, 'scraped_results': None, 'generated_summary': None}
+            return {'view': 'dashboard', 'main_topic': main_topic_key, 'subtopic': subtopic_key, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
+        return {'view': 'subtopic_selection', 'main_topic': main_topic_key, 'subtopic': None, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
     raise dash.exceptions.PreventUpdate
 
 @app.callback(
@@ -679,7 +695,7 @@ def select_main_topic(n_clicks_list, logo_clicks, home_nav_clicks):
 def select_subtopic(n_clicks):
     if not ctx.triggered_id: raise dash.exceptions.PreventUpdate
     button_id = ctx.triggered_id
-    return {'view': 'dashboard', 'main_topic': button_id['main_topic'], 'subtopic': button_id['subtopic_key'], 'scraped_results': None, 'generated_summary': None}
+    return {'view': 'dashboard', 'main_topic': button_id['main_topic'], 'subtopic': button_id['subtopic_key'], 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -688,7 +704,7 @@ def select_subtopic(n_clicks):
 )
 def go_back_to_topics(n_clicks):
     if not n_clicks: raise dash.exceptions.PreventUpdate
-    return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None, 'generated_summary': None}
+    return {'view': 'landing', 'main_topic': None, 'subtopic': None, 'scraped_results': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None}
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -698,25 +714,76 @@ def go_back_to_topics(n_clicks):
 )
 def go_back_to_subtopics(n_clicks, current_state):
     if not n_clicks: raise dash.exceptions.PreventUpdate
-    return {'view': 'subtopic_selection', 'main_topic': current_state.get('main_topic'), 'subtopic': None, 'scraped_results': None, 'generated_summary': None}
+    current_state.update({'view': 'subtopic_selection', 'subtopic': None, 'generated_summary': None, 'individual_pdf_summary': None, 'individual_pdf_title': None})
+    return current_state
 
+# <<< START: MODIFIED CALLBACK FOR DOCUMENT CLICK AND SUMMARIZATION >>>
 @app.callback(
-    Output('download-status-container', 'children'),
+    Output('app-state', 'data', allow_duplicate=True),
     Input({'type': 'doc-title-button', 'index': ALL}, 'n_clicks'),
     State('app-state', 'data'),
     prevent_initial_call=True
 )
-def handle_document_click(n_clicks, app_state):
-    if not ctx.triggered_id or not any(n_clicks): raise dash.exceptions.PreventUpdate
+def handle_document_click_and_summarize(n_clicks, app_state):
+    if not ctx.triggered_id or not any(n_clicks):
+        raise dash.exceptions.PreventUpdate
+
     clicked_doc_title = ctx.triggered_id['index']
     scraped_data = app_state.get('scraped_results', {}).get('full_data', [])
     selected_doc = next((doc for doc in scraped_data if doc["title"] == clicked_doc_title), None)
-    if not selected_doc: return dbc.Alert(f"Error: Document '{clicked_doc_title}' not found.", color="danger")
 
+    if not selected_doc:
+        app_state['individual_pdf_summary'] = f"Error: Document '{clicked_doc_title}' not found in state."
+        app_state['individual_pdf_title'] = "Error"
+        app_state['view'] = 'pdf_summary_view'
+        return app_state
+
+    print(f"📄 Downloading and summarizing: {clicked_doc_title}")
     pdf_path = download_nslsl_pdf(driver=DRIVER, doc_url=selected_doc["url"])
 
-    if pdf_path: return dbc.Alert(f"Success! Saved to: {os.path.abspath(pdf_path)}", color="success", duration=10000)
-    else: return dbc.Alert(f"Download failed for '{clicked_doc_title}'.", color="danger", duration=10000)
+    if pdf_path:
+        try:
+            with open(pdf_path, "rb") as pdf_file:
+                encoded_string = base64.b64encode(pdf_file.read()).decode()
+            
+            base64_content = f"data:application/pdf;base64,{encoded_string}"
+            
+            summary, status = get_pdf_summary_dash(base64_content, os.path.basename(pdf_path), "executive summary (200 words)", GEMINI_API_KEY)
+            
+            if status == 'success':
+                app_state['individual_pdf_summary'] = summary
+            else:
+                app_state['individual_pdf_summary'] = f"**Failed to generate summary for {clicked_doc_title}:**\n\n{summary}"
+            
+            os.remove(pdf_path)
+
+        except Exception as e:
+            app_state['individual_pdf_summary'] = f"**An error occurred while processing the PDF:**\n\n`{e}`"
+            print(f"❌ Error processing PDF {pdf_path}: {e}")
+    else:
+        app_state['individual_pdf_summary'] = f"**Download failed for '{clicked_doc_title}'.** Cannot generate summary."
+
+    app_state['individual_pdf_title'] = clicked_doc_title
+    app_state['view'] = 'pdf_summary_view'
+    return app_state
+# <<< END: MODIFIED CALLBACK >>>
+
+# <<< START: NEW CALLBACK TO GO BACK TO DASHBOARD >>>
+@app.callback(
+    Output('app-state', 'data', allow_duplicate=True),
+    Input('back-to-dashboard-button', 'n_clicks'),
+    State('app-state', 'data'),
+    prevent_initial_call=True
+)
+def go_back_to_dashboard(n_clicks, current_state):
+    if not n_clicks:
+        raise dash.exceptions.PreventUpdate
+    current_state['view'] = 'dashboard'
+    current_state['individual_pdf_summary'] = None
+    current_state['individual_pdf_title'] = None
+    return current_state
+# <<< END: NEW CALLBACK >>>
 
 if __name__ == '__main__':
     app.run(debug=True)
+
