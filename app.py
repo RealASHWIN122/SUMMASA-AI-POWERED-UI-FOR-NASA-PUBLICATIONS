@@ -102,59 +102,186 @@ def get_pdf_summary_dash(base64_content, filename, summary_length, current_clien
 
 
 # --- Mock Data (MODIFIED for Doc Analysis Button) --------------------------------------------
+# --- Mock Data (MODIFIED for new buttons and layout) ---------------------
+# --- Mock Data (MODIFIED with all subtopics) ---------------------
 MOCK_DATA = {
-    'radiation': {
-        'display_name': 'Radiation',
+    # --- Physics (Already done) ---
+    'physics': {
+        'display_name': 'Physics',
+        'layout_group': 'sidebar',
         'subtopics': {
-            'dna_damage': {
-                'title': 'DNA Damage & Repair',
-                'summary': "Exposure to cosmic radiation results in significant DNA damage in plant and animal models. Studies on the ISS have identified several repair mechanisms, though long-term effects, particularly for Mars missions, remain a key concern. Key genes like RAD51 and p53 are consistently upregulated.",
+            'classical_mechanics': {
+    'title': 'Classical Mechanics',
+    'summary': "Classical mechanics deals with the motion of macroscopic objects...",
+    # ... (keep all the existing keys like experiments, knowledge_gaps, etc.)
+    
+    # --- UPDATE THIS LIST ---
+    'related_documents': [
+            {'title': 'NASA Technical Reports: Basics of Space Flight', 'url': 'https://solarsystem.nasa.gov/basics/space-flight/'},
+            {'title': 'Introduction to Orbital Mechanics - Glenn Research Center', 'url': 'https://www.nasa.gov/mission_pages/station/expeditions/expedition30/tryathome.html'}
+            
+
+        
+      
+    ]
+    # ------------------------------------
+},
+            'quantum_mechanics': {
+                'title': 'Quantum Mechanics',
+                'summary': "Summary for Quantum Mechanics goes here.",
+                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
+                'knowledge_gaps': {"Awaiting Analysis": 100},
+                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
+                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+            },
+            'thermodynamics': {
+                'title': 'Thermodynamics',
+                'summary': "Summary for Thermodynamics goes here.",
+                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
+                'knowledge_gaps': {"Awaiting Analysis": 100},
+                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
+                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+            }
+        }
+    },
+    
+    # --- NEW: Chemistry ---
+    'chemistry': {
+        'display_name': 'Chemistry',
+        'layout_group': 'sidebar',
+        'subtopics': {
+            'astrochemistry': {
+                'title': 'Astrochemistry',
+                'summary': "Astrochemistry is the study of the abundance and reactions of molecules in the Universe, and their interaction with radiation. It's crucial for understanding the formation of stars, planets, and potentially life.",
                 'experiments': pd.DataFrame({
-                    "Organism": ["Arabidopsis", "Mice", "Yeast", "Human Cells"],
-                    "Count": [18, 12, 9, 7],
+                    "Method": ["Radio Telescopes", "Space Probes", "Lab Simulations"],
+                    "Detections": [150, 45, 90]
                 }),
-                'knowledge_gaps': {"Known Effects": 60, "Countermeasures": 25, "Long-Term Impact": 15},
+                'knowledge_gaps': {"Prebiotic Molecules": 50, "Isotopic Ratios": 30, "Reaction Pathways": 20},
                 'actionable': {
-                    'Mission Architects': "Shielding for transport vehicles and habitats is critical. Consider routes that minimize exposure to solar particle events.",
-                    'Scientists': "Focus on developing radioprotective supplements and gene therapies. More research is needed on the combined effects of radiation and microgravity.",
-                    'Managers': "Prioritize funding for projects investigating countermeasures and real-time radiation monitoring technologies for crew safety."
+                    'Mission Architects': "Equip probes with advanced spectrometers to analyze molecular clouds and planetary atmospheres.",
+                    'Scientists': "Model chemical reactions in low-temperature, low-pressure environments to replicate interstellar conditions.",
+                    'Managers': "Support interdisciplinary projects combining astronomy, chemistry, and biology."
                 },
                 'graph_elements': [
-                    {'data': {'id': 'rad', 'label': 'Radiation'}, 'position': {'x': 100, 'y': 100}},
-                    {'data': {'id': 'dna', 'label': 'DNA Damage'}, 'position': {'x': 250, 'y': 100}},
-                    {'data': {'id': 'repair', 'label': 'Gene Repair Mech.'}, 'position': {'x': 400, 'y': 50}},
-                    {'data': {'id': 'cancer', 'label': 'Cancer Risk'}, 'position': {'x': 400, 'y': 150}},
-                    {'data': {'id': 'counter', 'label': 'Countermeasures'}, 'position': {'x': 550, 'y': 100}},
-                    {'data': {'id': 'mars', 'label': 'Mars Mission Viability'}, 'position': {'x': 700, 'y': 100}},
-                    {'data': {'source': 'rad', 'target': 'dna'}, 'classes': 'edge'},
-                    {'data': {'source': 'dna', 'target': 'repair'}, 'classes': 'edge'},
-                    {'data': {'source': 'dna', 'target': 'cancer'}, 'classes': 'edge'},
-                    {'data': {'source': 'repair', 'target': 'counter'}, 'classes': 'edge'},
-                    {'data': {'source': 'cancer', 'target': 'counter'}, 'classes': 'edge'},
-                    {'data': {'source': 'counter', 'target': 'mars'}, 'classes': 'edge'},
+                    {'data': {'id': 'clouds', 'label': 'Interstellar Clouds'}},
+                    {'data': {'id': 'molecules', 'label': 'Simple Molecules'}},
+                    {'data': {'id': 'organics', 'label': 'Complex Organics'}},
+                    {'data': {'id': 'life', 'label': 'Origin of Life?'}},
+                    {'data': {'source': 'clouds', 'target': 'molecules'}},
+                    {'data': {'source': 'molecules', 'target': 'organics'}},
+                    {'data': {'source': 'organics', 'target': 'life'}},
                 ]
             },
-            # ... other radiation subtopics ...
-        },
-        'default_subtopic': 'dna_damage'
+            'propellants': {
+                'title': 'Propellant Chemistry',
+                'summary': "The study of chemical propellants is vital for launch vehicles and spacecraft. Research focuses on increasing specific impulse (Isp), stability, and storability of fuels and oxidizers, including cryogenics and hypergolic compounds.",
+                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
+                'knowledge_gaps': {"Awaiting Analysis": 100},
+                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
+                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+            }
+        }
     },
-    # ADDED THE SPECIAL TOPIC HERE
+
+    # --- NEW: Maths ---
+    'maths': {
+        'display_name': 'Maths',
+        'layout_group': 'sidebar',
+        'subtopics': {
+            'orbital_mechanics': {
+                'title': 'Orbital Mechanics',
+                'summary': "Also known as astrodynamics, this is the application of ballistics and celestial mechanics to the practical problems concerning the motion of rockets and other spacecraft. It allows for the calculation of trajectories, planetary flybys, and orbital maneuvers.",
+                'experiments': pd.DataFrame({
+                    "Application": ["Satellite Deployment", "Interplanetary Travel", "Debris Tracking"],
+                    "Missions": [1000, 50, 200]
+                }),
+                'knowledge_gaps': {"Low-Thrust Optimization": 45, "N-Body Problem": 35, "Chaotic Systems": 20},
+                'actionable': {
+                    'Mission Architects': "Design fuel-efficient trajectories using principles like Hohmann transfers and gravitational assists.",
+                    'Scientists': "Develop robust algorithms to solve the n-body problem for stable multi-satellite constellations.",
+                    'Managers': "Invest in collision avoidance systems based on predictive orbital modeling."
+                },
+                'graph_elements': [
+                    {'data': {'id': 'kepler', 'label': "Kepler's Laws"}},
+                    {'data': {'id': 'trajectory', 'label': 'Trajectory Calculation'}},
+                    {'data': {'id': 'hohmann', 'label': 'Hohmann Transfer'}},
+                    {'data': {'id': 'success', 'label': 'Mission Success'}},
+                    {'data': {'source': 'kepler', 'target': 'trajectory'}},
+                    {'data': {'source': 'trajectory', 'target': 'hohmann'}},
+                    {'data': {'source': 'hohmann', 'target': 'success'}},
+                ]
+            },
+            'signal_processing': {
+                'title': 'Signal Processing',
+                'summary': "Mathematical techniques are essential for cleaning, decoding, and interpreting data transmitted from spacecraft over vast distances. This includes Fourier analysis, error correction codes, and image compression algorithms.",
+                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
+                'knowledge_gaps': {"Awaiting Analysis": 100},
+                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
+                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+            }
+        }
+    },
+
+    # --- NEW: Science ---
+    'science': {
+        'display_name': 'Science',
+        'layout_group': 'sidebar',
+        'subtopics': {
+            'exoplanetology': {
+                'title': 'Exoplanetology',
+                'summary': "The scientific field dedicated to the discovery and study of exoplanets (planets outside our Solar System). Key methods include transit photometry and radial velocity, with the ultimate goal of finding habitable worlds.",
+                'experiments': pd.DataFrame({
+                    "Mission": ["Kepler", "TESS", "JWST"],
+                    "Discoveries": [2662, 250, 50]
+                }),
+                'knowledge_gaps': {"Biosignatures": 60, "Planet Formation": 25, "Rogue Planets": 15},
+                'actionable': {
+                    'Mission Architects': "Design next-generation telescopes with coronagraphs to directly image exoplanets and analyze their atmospheres.",
+                    'Scientists': "Develop machine learning models to sift through telescope data and identify potential transit signals.",
+                    'Managers': "Prioritize long-term funding for missions capable of atmospheric characterization of Earth-like exoplanets."
+                },
+                'graph_elements': [
+                    {'data': {'id': 'star', 'label': 'Distant Star'}},
+                    {'data': {'id': 'transit', 'label': 'Transit Method'}},
+                    {'data': {'id': 'planet', 'label': 'Exoplanet Detected'}},
+                    {'data': {'id': 'atmosphere', 'label': 'Atmosphere Analysis'}},
+                    {'data': {'id': 'habitability', 'label': 'Habitability?'}},
+                    {'data': {'source': 'star', 'target': 'transit'}},
+                    {'data': {'source': 'transit', 'target': 'planet'}},
+                    {'data': {'source': 'planet', 'target': 'atmosphere'}},
+                    {'data': {'source': 'atmosphere', 'target': 'habitability'}},
+                ]
+            },
+            'planetary_geology': {
+                'title': 'Planetary Geology',
+                'summary': "This discipline, also known as astrogeology, studies the geology of celestial bodies such as planets, moons, asteroids, and comets. It helps us understand the formation and evolution of our solar system.",
+                'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
+                'knowledge_gaps': {"Awaiting Analysis": 100},
+                'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
+                'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+            }
+        }
+    },
+    
+    # --- Main Button ---
     'doc_analysis': {
         'display_name': 'Document Analysis (AI)',
-        # Special subtopic key to trigger the dedicated layout
+        'layout_group': 'main', 
         'default_subtopic': 'summarizer_mode' 
     }
 }
 
 # --- Styles & Theming (Unchanged) -----------------------------------------------------------
+# --- Styles & Theming (Unchanged) -----------------------------------------------------------
 APP_THEME = dbc.themes.CYBORG
 CUSTOM_CSS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-LOGO = "https://placehold.co/40x40/000000/FFFFFF?text=EX"
+# The final, correct line
+LOGO = "/assets/AI-image-summarizer-for-Journalists-Content-Creators.png"
 CHART_TEMPLATE = 'plotly_dark'
-
 # --- App Initialization (Unchanged) ---------------------------------------------------------
 app = dash.Dash(__name__, external_stylesheets=[APP_THEME, CUSTOM_CSS, dbc.icons.BOOTSTRAP], suppress_callback_exceptions=True)
-app.title = "Electric Xtra Insights"
+app.title = "NASA HELPER"
 
 # --- Reusable Components (Unchanged) -------------------------------------------------------
 def create_card(title, content, icon):
@@ -235,35 +362,55 @@ def generate_summarizer_page_layout():
 
 # --- Layout Generators ---------------------------------------------------------
 def generate_landing_layout():
-    """Creates the initial topic selection screen."""
-    buttons = html.Div(
+    """Creates the initial screen with a horizontal button bar above the title."""
+    
+    # 1. Create the horizontal bar of buttons from MOCK_DATA
+    # This now includes all buttons that were previously in the sidebar
+    horizontal_buttons = html.Div(
         [
             dbc.Button(
-                topic_data['display_name'],
-                id={'type': 'topic-button', 'index': topic_key},
+                data['display_name'],
+                id={'type': 'topic-button', 'index': key},
+                className="m-2", # Adds margin around each button
+                color="secondary"
+            ) for key, data in MOCK_DATA.items() if data.get('layout_group') == 'sidebar'
+        ],
+        className="d-flex justify-content-center flex-wrap mb-4" # Centers the buttons
+    )
+
+    # 2. Create the main "Document Analysis" button
+    main_buttons = html.Div(
+        [
+            dbc.Button(
+                data['display_name'],
+                id={'type': 'topic-button', 'index': key},
                 size="lg",
                 className="m-3",
-                # Use a distinct style for the AI button
-                style={'background': 'linear-gradient(90deg, #ff8c00, #ff5722)', 'borderColor': '#ff8c00', 'minWidth': '150px'}
-                if topic_key != 'doc_analysis' else
-                {'background': 'linear-gradient(90deg, #00bfff, #483d8b)', 'borderColor': '#00bfff', 'minWidth': '150px'}
-            ) for topic_key, topic_data in MOCK_DATA.items()
+                style={'background': 'linear-gradient(90deg, #00bfff, #483d8b)', 'borderColor': '#00bfff', 'minWidth': '150px'}
+            ) for key, data in MOCK_DATA.items() if data.get('layout_group') == 'main'
         ],
         className="d-flex justify-content-center flex-wrap mb-4"
     )
-    search_bar = dbc.InputGroup(
-        [
-            dbc.Input(id="search-input", placeholder="Search for any topic...", type="text"),
-            dbc.Button(html.I(className="bi bi-search"), id="search-button", color="primary", style={'backgroundColor': '#00bfff', 'borderColor': '#00bfff'}),
-        ],
-        className="mb-3 w-50 mx-auto",
-    )
+    
+    # 3. Assemble the final layout
     hero_section = dbc.Container(
         [
-            html.H1("NASA CHUNNI", className="display-1 fw-bold text-white text-center"),
-            html.P("ERANGI PODA BHOOMI NN", className="text-center text-white-50 fs-4 mb-5"),
-            buttons,
-            search_bar,
+            # --- BUTTON BAR GOES HERE, ABOVE EVERYTHING ELSE ---
+            horizontal_buttons, 
+            
+            html.H1("Welcome to D0C0SUM", className="display-1 fw-bold text-White text-center"),
+            html.P("A hacky bois initiative for summarize", className="text-center text-white-50 fs-4 mb-5"),
+            
+            main_buttons, # The Document Analysis button
+            
+            dbc.InputGroup(
+                [
+                    dbc.Input(id="search-input", placeholder="Search for any topic...", type="text"),
+                    dbc.Button(html.I(className="bi bi-search"), id="search-button", color="primary", style={'backgroundColor': '#00bfff', 'borderColor': '#00bfff'}),
+                ],
+                className="mb-3 w-75 mx-auto",
+            ),
+            
             dbc.Row(dbc.Col(html.Div(id="search-error"), width={'size': 6, 'offset': 3}))
         ],
         fluid=True,
@@ -273,8 +420,8 @@ def generate_landing_layout():
             'minHeight': 'calc(100vh - 56px)'
         }
     )
+    
     return html.Div([hero_section])
-
 def generate_subtopic_layout(main_topic_key):
     """Generates the layout for selecting subtopics."""
     if main_topic_key not in MOCK_DATA or 'subtopics' not in MOCK_DATA[main_topic_key]:
@@ -315,10 +462,9 @@ def generate_dashboard_layout(main_topic_key, subtopic_key):
     # --- Standard Topic/Query Handling ---
     data = {}
     
-    # CASE 1: Handle a custom query that is not in MOCK_DATA
-    if subtopic_key == 'custom_query':
-        data = {
-            'title': f"On-Demand Analysis for: {main_topic_key.title()}",
+    # CASE 1: Handle a custom query that is not in MOCK_DAT
+    data = {
+            'title': f"On-Demand Analysis for: {subtopic_key.title()}",
             'summary': "This is a custom query. In a real application, a backend model would generate a summary here based on the search term.",
             'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
             'knowledge_gaps': {"Awaiting Analysis": 100},
@@ -328,17 +474,12 @@ def generate_dashboard_layout(main_topic_key, subtopic_key):
                 'Managers': "Evaluate the potential of this new research area."
             },
             'graph_elements': [
-                {'data': {'id': 'query', 'label': main_topic_key.title()}},
+                {'data': {'id': 'query', 'label': subtopic_key.title()}},
                 {'data': {'id': 'placeholder', 'label': 'Analysis Pending...'}},
                 {'data': {'source': 'query', 'target': 'placeholder'}, 'classes': 'edge'},
             ]
         }
-    # CASE 2: Handle a valid topic/subtopic from MOCK_DATA
-    elif main_topic_key in MOCK_DATA and subtopic_key in MOCK_DATA[main_topic_key].get('subtopics', {}):
-        data = MOCK_DATA[main_topic_key]['subtopics'][subtopic_key]
-    # CASE 3: Handle an error state
-    else:
-        return dbc.Alert("Error: Data for this topic could not be found.", color="danger")
+   
 
     # --- Standard Dashboard Components ---
     graph_config = {'staticPlot': True}
@@ -441,7 +582,7 @@ def generate_dashboard_layout(main_topic_key, subtopic_key):
                 ])
             ),
             dbc.Tab(
-                label="Document Analysis (Gemini)", 
+                label="Document Analysis ", 
                 children=doc_analysis_tab_content
             ),
         ], className="mb-4", active_tab="tab-0") 
@@ -453,7 +594,7 @@ header = dbc.Navbar(
     dbc.Container([
         html.A(
             dbc.Row(
-                [dbc.Col(html.Img(src=LOGO, height="40px")), dbc.Col(dbc.NavbarBrand("ELECTRIC XTRA", className="ms-2 text-white"))],
+                [dbc.Col(html.Img(src=LOGO, height="40px")), dbc.Col(dbc.NavbarBrand("NASA DOCOSUM", className="ms-2 text-white"))],
                 align="center", className="g-0",
             ),
             id="logo-home-link",
