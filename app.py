@@ -34,10 +34,10 @@ def close_driver():
     DRIVER.quit()
 atexit.register(close_driver)
 
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', "YOUR_API_KEY_HERE") 
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', "AIzaSyA2f64amvhSBD26sDYgzJv6bgTQqlB_hNA") 
 MODEL_NAME = 'gemini-1.5-flash'
 try:
-    if GEMINI_API_KEY != "YOUR_API_KEY_HERE":
+    if GEMINI_API_KEY != "AIzaSyA2f64amvhSBD26sDYgzJv6bgTQqlB_hNA":
         client = genai.Client(api_key=GEMINI_API_KEY)
         GEMINI_AVAILABLE = True
     else:
@@ -47,29 +47,40 @@ except Exception as e:
     client = None; GEMINI_AVAILABLE = False
     print(f"Error initializing Gemini Client: {e}")
 
-def get_pdf_summary_dash(base64_content, filename, summary_length, current_client):
-    if not current_client or not base64_content: return "Gemini API is not configured or file content is missing.", "danger"
-    content_type, content_string = base64_content.split(',')
-    decoded = base64.b64decode(content_string)
+def get_pdf_summary_dash(file_path, filename, summary_length, current_client):
+    """
+    Handles file upload FROM A SERVER PATH to Gemini, summarization, and cleanup.
+    """
+    if not current_client or not file_path:
+        return "Gemini API is not configured or file path is missing.", "danger"
+    
     uploaded_file = None
-    temp_file_path = None
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(decoded)
-            temp_file_path = tmp_file.name
-        uploaded_file = current_client.files.upload(path=temp_file_path, display_name=filename)
+        # 1. Upload the file to the Gemini File API directly from the path
+        uploaded_file = current_client.files.upload(path=file_path, display_name=filename)
+        
         system_instruction = "You are an expert document summarization specialist..."
         prompt = f"Summarize the uploaded PDF document named '{filename}' in a **{summary_length}** format..."
+        
+        # 2. Generate content
         model = current_client.models.get_model(f'models/{MODEL_NAME}')
         response = model.generate_content([uploaded_file, prompt], system_instruction=system_instruction)
         summary, status = response.text, "success"
+        
     except Exception as e:
         summary, status = f"An error occurred during summarization: {e}", "danger"
+        
     finally:
-        if temp_file_path and os.path.exists(temp_file_path): os.unlink(temp_file_path)
+        # 3. Clean up the server's temporary file and the Gemini file
+        if file_path and os.path.exists(file_path):
+            os.unlink(file_path)
+            
         if uploaded_file:
-            try: current_client.files.delete(name=uploaded_file.name)
-            except Exception as e: print(f"Gemini file cleanup failed for {uploaded_file.name}: {e}")
+            try:
+                current_client.files.delete(name=uploaded_file.name)
+            except Exception as e:
+                print(f"Gemini file cleanup failed for {uploaded_file.name}: {e}")
+            
     return summary, status
 # =========================================================================
 
@@ -375,83 +386,55 @@ def generate_subtopic_layout(main_topic_key):
     )
 
 def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None):
-    """Creates the detailed dashboard view, with placeholder cards and the scraped list."""
+    """Creates the detailed dashboard view, with tabs and a modal for abstracts."""
     if main_topic_key == 'doc_analysis' and subtopic_key == 'summarizer_mode':
         return generate_summarizer_page_layout()
 
     data = {}
-    if subtopic_key == 'custom_query':
+    is_custom_query = subtopic_key == 'custom_query'
+
+    if is_custom_query:
         data = {
-            'title': f"On-Demand Analysis for: {main_topic_key.title()}",
-            'summary': "This is a custom query. A backend model would generate a summary here...",
-            'experiments': pd.DataFrame({"Category": ["N/A"], "Count": [0]}),
-            'knowledge_gaps': {"Awaiting Analysis": 100},
-            'actionable': {'Mission Architects': "N/A", 'Scientists': "N/A", 'Managers': "N/A"},
-            'graph_elements': [{'data': {'id': 'placeholder', 'label': 'Coming Soon'}}]
+            'title': f"Search Results for: {main_topic_key.title()}",
+            'summary': f"Showing live results for your query: '{main_topic_key}'. Click a title in the 'Scraped Documents' card for options."
         }
     elif main_topic_key in MOCK_DATA and subtopic_key in MOCK_DATA[main_topic_key].get('subtopics', {}):
         data = MOCK_DATA[main_topic_key]['subtopics'][subtopic_key]
     else:
         return dbc.Alert("Error: Data for this topic could not be found.", color="danger")
 
-    # --- ### ROBUST COMPONENT GENERATION (with corrections) ### ---
+    # --- Create all dashboard cards ---
+    summary_card = create_card("AI-Powered Summary", dcc.Markdown(data.get('summary', '')), "bi-robot")
+    knowledge_graph = create_card("Knowledge Graph", cyto.Cytoscape(id='knowledge-graph', layout={'name': 'cose'}, style={'width': '100%', 'height': '400px'}, elements=data.get('graph_elements', [])), "bi-diagram-3-fill")
     
-    summary_text = data.get('summary', 'No summary available for this topic.')
-    summary_card = create_card("AI-Powered Summary", dcc.Markdown(summary_text), "bi-robot")
+    experiments_df = data.get('experiments')
+    bar_chart = create_card("Data Distribution", dcc.Graph(figure=px.bar(experiments_df, x=experiments_df.columns[0], y=experiments_df.columns[1], template=CHART_TEMPLATE)), "bi-bar-chart-line-fill") if experiments_df is not None and not experiments_df.empty else None
 
-    graph_elements = data.get('graph_elements', [])
-    # CORRECTED: Added the icon argument "bi-diagram-3-fill"
-    knowledge_graph = create_card(
-        "Knowledge Graph", 
-        cyto.Cytoscape(id='knowledge-graph', layout={'name': 'cose'}, style={'width': '100%', 'height': '400px'}, elements=graph_elements, stylesheet=[{'selector': 'node', 'style': {'label': 'data(label)', 'background-color': '#00bfff', 'color': 'white'}}, {'selector': 'edge', 'style': {'line-color': '#4e5d78', 'width': 2}}]),
-        "bi-diagram-3-fill" 
-    )
+    # --- Scraped Documents Card ---
+    scraped_documents_card = None
+    if scraped_results and scraped_results.get('documents'):
+        doc_items = [dbc.ListGroupItem([dbc.Row([dbc.Col(doc["title"], width=8), dbc.Col(dbc.ButtonGroup([dbc.Button("Abstract", id={'type': 'abstract-button', 'index': i}, size="sm", color="info", outline=True), dbc.Button("Download", id={'type': 'download-button', 'index': i}, size="sm", color="success", outline=True)]), width=4, className="d-flex justify-content-end")], align="center")]) for i, doc in enumerate(scraped_results['documents'])]
+        scraped_content = [
+            html.P("View an abstract or download the PDF.", className="small"),
+            dbc.ListGroup(doc_items, flush=True, style={'maxHeight': '400px', 'overflowY': 'auto'}),
+            html.Div(id='download-status-container', className="mt-2")
+        ]
+        scraped_documents_card = create_card("Scraped Documents", scraped_content, "bi-card-list")
 
-    experiments_df = data.get('experiments', pd.DataFrame({'Category': ['No Data'], 'Count': [0]}))
-    # CORRECTED: Added the icon argument "bi-bar-chart-line-fill"
-    bar_chart = create_card(
-        "Data Distribution", 
-        dcc.Graph(figure=px.bar(experiments_df, x=experiments_df.columns[0], y=experiments_df.columns[1], template=CHART_TEMPLATE)),
-        "bi-bar-chart-line-fill"
-    )
-
-    gaps_data = data.get('knowledge_gaps', {'No Data': 100})
-    # CORRECTED: Added the icon argument "bi-pie-chart-fill"
-    pie_chart = create_card(
-        "Areas of Study", 
-        dcc.Graph(figure=px.pie(names=list(gaps_data.keys()), values=list(gaps_data.values()), template=CHART_TEMPLATE, hole=0.4)),
-        "bi-pie-chart-fill"
-    )
-
-    actionable_data = data.get('actionable', {})
-    # CORRECTED: Added the icon argument "bi-lightbulb-fill"
-    actionable_insights = create_card(
-        "Actionable Insights", 
-        [dbc.Tabs([
-            dbc.Tab(dcc.Markdown(actionable_data.get('Mission Architects', 'N/A')), label="Architects"),
-            dbc.Tab(dcc.Markdown(actionable_data.get('Scientists', 'N/A')), label="Scientists"),
-            dbc.Tab(dcc.Markdown(actionable_data.get('Managers', 'N/A')), label="Managers")
-        ])],
-        "bi-lightbulb-fill"
-    )
-    
+    # --- Create the content for the Document Analysis tab ---
     research_links_section = None
     related_docs_list = data.get('related_documents', [])
     if related_docs_list:
         research_links_section = html.Div([
             html.H5("Related Research Papers", className="mt-4"),
-            dbc.ListGroup(
-                [dbc.ListGroupItem(html.A(doc['title'], href=doc['url'], target="_blank")) for doc in related_docs_list],
-                flush=True
-            )
+            dbc.ListGroup([dbc.ListGroupItem(html.A(doc['title'], href=doc['url'], target="_blank")) for doc in related_docs_list], flush=True)
         ])
 
     doc_analysis_tab_content = html.Div([
         html.P("Upload a PDF document to get an on-demand summary related to space research.", className="lead"),
-        dbc.Alert("⚠️ Gemini API Key is not configured...", color="warning", is_open=not GEMINI_AVAILABLE) if not GEMINI_AVAILABLE else None,
         dbc.Row([
             dbc.Col(dcc.Upload(id='upload-data', children=html.Div(['Drag and Drop or ', html.A('Select a PDF File')]), style={'width': '100%', 'height': '60px', 'lineHeight': '60px', 'borderWidth': '1px', 'borderStyle': 'dashed', 'borderRadius': '5px', 'textAlign': 'center', 'margin': '10px', 'color': '#00bfff'}, multiple=False), md=6),
-            dbc.Col(dcc.Dropdown(id='summary-length-dropdown', options=[{'label': 'Executive Summary (200 words)', 'value': 'executive summary (200 words)'}, {'label': '3 Concise Bullet Points', 'value': '3 concise bullet points'}, {'label': 'One Short Paragraph', 'value': 'one short paragraph'}, {'label': 'Detailed Report (500 words)', 'value': 'detailed report (500 words)'}], value='executive summary (200 words)', clearable=False, style={'color': '#333'}), md=4),
+            dbc.Col(dcc.Dropdown(id='summary-length-dropdown', options=[{'label': 'Executive Summary (200 words)', 'value': 'executive summary (200 words)'}, {'label': '3 Concise Bullet Points', 'value': '3 concise bullet points'}], value='executive summary (200 words)', clearable=False, style={'color': '#333'}), md=4),
             dbc.Col(dbc.Button("Summarize Document", id="summarize-button", color="primary", className="mt-3", disabled=not GEMINI_AVAILABLE), md=2)
         ]),
         html.Div(id='upload-filename-display', className="mb-3 text-white-50"),
@@ -459,29 +442,42 @@ def generate_dashboard_layout(main_topic_key, subtopic_key, scraped_results=None
         html.Hr(),
         research_links_section if research_links_section else ""
     ])
-    
-    back_button_id = "back-to-subtopics-button" if subtopic_key != 'custom_query' else "back-to-topics-button"
-    back_button_text = "Go Back to Subtopics" if subtopic_key != 'custom_query' else "Back to Home"
 
-    # --- Assemble final layout ---
+    back_button_id = "back-to-subtopics-button" if not is_custom_query else "back-to-topics-button"
+    back_button_text = "Go Back to Subtopics" if not is_custom_query else "Back to Home"
+
+    abstract_modal = dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Document Abstract")),
+        dbc.ModalBody(dcc.Loading(id="abstract-content")),
+    ], id="abstract-modal", size="lg", is_open=False)
+
+    # --- ### FINAL LAYOUT WITH TABS RESTORED ### ---
     return html.Div([
+        abstract_modal,
         dbc.Button(back_button_text, id=back_button_id, className="mb-3", color="light", outline=True),
-        html.H3(f"Dashboard for: {data.get('title', main_topic_key.replace('_', ' ').title())}", className="text-white mb-4"),
+        html.H3(f"{data.get('title', 'Dashboard')}", className="text-white mb-4"),
         
         dbc.Tabs([
+            # -- Tab 1: Topic Dashboard --
             dbc.Tab(
-                label="Topic Dashboard", 
+                label="Topic Dashboard",
                 children=html.Div([
-                    dbc.Row([dbc.Col(summary_card, md=12)]),
-                    dbc.Row([dbc.Col(knowledge_graph, md=7), dbc.Col([bar_chart, pie_chart], md=5)]),
-                    dbc.Row([dbc.Col(actionable_insights, md=12)])
+                    dbc.Row([
+                        dbc.Col(summary_card, width=12)
+                    ]),
+                    dbc.Row([
+                        dbc.Col(knowledge_graph, md=7),
+                        # Place the bar chart and scraped results on the right
+                        dbc.Col([bar_chart, scraped_documents_card], md=5)
+                    ])
                 ])
             ),
+            # -- Tab 2: Document Analysis --
             dbc.Tab(
-                label="Document Analysis", 
+                label="Document Analysis (Gemini)",
                 children=doc_analysis_tab_content
-            ),
-        ]),
+            )
+        ])
     ])
 # --- Main App Layout (Unchanged) ------------------------------------------------------------
 header = dbc.Navbar(
@@ -522,17 +518,6 @@ def router(data):
     return html.Div("404 - Page not found")
 
 # --- CALLBACKS ---
-@app.callback(
-    [Output('app-state', 'data', allow_duplicate=True), Output('upload-filename-display', 'children')],
-    Input('upload-data', 'contents'),
-    State('upload-data', 'filename'), State('app-state', 'data'),
-    prevent_initial_call=True
-)
-def save_uploaded_file(list_of_contents, list_of_names, current_state):
-    if list_of_contents is None: raise dash.exceptions.PreventUpdate
-    current_state['uploaded_data'] = list_of_contents
-    current_state['uploaded_filename'] = list_of_names
-    return current_state, html.P(f"File ready: **{list_of_names}**", className="text-success")
 
 @app.callback(
     Output('summary-output-container', 'children'),
@@ -578,6 +563,33 @@ def search_topic(n_clicks, search_value, current_state):
         current_state['main_topic'] = search_value
         current_state['subtopic'] = 'custom_query'
         return current_state, None
+    
+@app.callback(
+    [Output('app-state', 'data', allow_duplicate=True), 
+     Output('upload-filename-display', 'children')],
+    Input('upload-data', 'contents'),
+    State('upload-data', 'filename'), State('app-state', 'data'),
+    prevent_initial_call=True
+)
+def save_uploaded_file(list_of_contents, list_of_names, current_state):
+    """Saves the uploaded file to a temp location on the SERVER and stores the path."""
+    if list_of_contents is None:
+        raise dash.exceptions.PreventUpdate
+
+    # Decode the base64 string
+    content_type, content_string = list_of_contents.split(',')
+    decoded = base64.b64decode(content_string)
+    
+    # Create a temporary file and save the content
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        tmp_file.write(decoded)
+        temp_file_path = tmp_file.name # Get the path to the temporary file
+
+    # Store the FILENAME and the temporary file PATH in the app state
+    current_state['uploaded_filename'] = list_of_names
+    current_state['temp_file_path'] = temp_file_path # Instead of 'uploaded_data'
+    
+    return current_state, html.P(f"File ready: **{list_of_names}**", className="text-success")
 
 @app.callback(
     Output('app-state', 'data', allow_duplicate=True),
@@ -627,24 +639,56 @@ def go_back_to_topics(n_clicks):
 def go_back_to_subtopics(n_clicks, current_state):
     if not n_clicks: raise dash.exceptions.PreventUpdate
     return {'view': 'subtopic_selection', 'main_topic': current_state.get('main_topic'), 'subtopic': None, 'scraped_results': None}
-
 @app.callback(
-    Output('download-status-container', 'children'),
-    Input({'type': 'doc-title-button', 'index': ALL}, 'n_clicks'),
+    Output('abstract-modal', 'is_open'),
+    Output('abstract-content', 'children'),
+    Input({'type': 'abstract-button', 'index': ALL}, 'n_clicks'),
     State('app-state', 'data'),
     prevent_initial_call=True
 )
-def handle_document_click(n_clicks, app_state):
-    if not ctx.triggered_id or not any(n_clicks): raise dash.exceptions.PreventUpdate
-    clicked_doc_title = ctx.triggered_id['index']
+def show_abstract(n_clicks, app_state):
+    if not ctx.triggered_id or not any(n_clicks):
+        raise dash.exceptions.PreventUpdate
+
+    # Get the index of the button that was clicked
+    button_index = ctx.triggered_id['index']
+    
+    # Find the corresponding document URL
     scraped_data = app_state.get('scraped_results', {}).get('full_data', [])
-    selected_doc = next((doc for doc in scraped_data if doc["title"] == clicked_doc_title), None)
-    if not selected_doc: return dbc.Alert(f"Error: Document '{clicked_doc_title}' not found.", color="danger")
+    if button_index >= len(scraped_data):
+        return True, "Error: Document index out of range."
+
+    selected_doc_url = scraped_data[button_index]["url"]
+    
+    # Use your new scraper function to get the abstract
+    print(f"📄 Scraping abstract for: {selected_doc_url}")
+    abstract_text = get_abstract_for_doc(driver=DRIVER, doc_url=selected_doc_url)
+    
+    # Open the modal and display the text
+    return True, dcc.Markdown(abstract_text)
+@app.callback(
+    Output('download-status-container', 'children'),
+    Input({'type': 'download-button', 'index': ALL}, 'n_clicks'),
+    State('app-state', 'data'),
+    prevent_initial_call=True
+)
+def handle_pdf_download(n_clicks, app_state):
+    if not ctx.triggered_id or not any(n_clicks):
+        raise dash.exceptions.PreventUpdate
+
+    button_index = ctx.triggered_id['index']
+    scraped_data = app_state.get('scraped_results', {}).get('full_data', [])
+    
+    if button_index >= len(scraped_data):
+        return dbc.Alert("Error: Document index out of range.", color="danger")
+        
+    selected_doc = scraped_data[button_index]
     
     pdf_path = download_nslsl_pdf(driver=DRIVER, doc_url=selected_doc["url"])
     
-    if pdf_path: return dbc.Alert(f"Success! Saved to: {os.path.abspath(pdf_path)}", color="success", duration=10000)
-    else: return dbc.Alert(f"Download failed for '{clicked_doc_title}'.", color="danger", duration=10000)
-
+    if pdf_path:
+        return dbc.Alert(f"Success! Saved to: {os.path.abspath(pdf_path)}", color="success", duration=10000)
+    else:
+        return dbc.Alert(f"Download failed for '{selected_doc['title']}'.", color="danger", duration=10000)
 if __name__ == '__main__':
     app.run(debug=True)
