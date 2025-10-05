@@ -1,0 +1,183 @@
+{
+  "radiation": {
+    "display_name": "Radiation",
+    "default_subtopic": "dna_damage",
+    "subtopics": {
+      "dna_damage": {
+        "title": "DNA Damage & Repair",
+        "summary": "Exposure to cosmic radiation results in significant DNA damage in plant and animal models. Studies on the ISS have identified several repair mechanisms, though long-term effects, particularly for Mars missions, remain a key concern. Key genes like RAD51 and p53 are consistently upregulated.",
+        "experiments": [
+          {"Organism": "Arabidopsis", "Count": 18},
+          {"Organism": "Mice",        "Count": 12},
+          {"Organism": "Yeast",       "Count": 9},
+          {"Organism": "Human Cells", "Count": 7}
+        ],
+        "knowledge_gaps": {"Known Effects": 60, "Countermeasures": 25, "Long-Term Impact": 15},
+        "actionable": {
+          "Mission Architects": "Shielding for transport vehicles and habitats is critical. Consider routes that minimize exposure to solar particle events.",
+          "Scientists": "Focus on developing radioprotective supplements and gene therapies. More research is needed on the combined effects of radiation and microgravity.",
+          "Managers": "Prioritise funding for projects investigating countermeasures and real-time radiation monitoring technologies for crew safety."
+        },
+        "graph_elements": [
+          {"data": {"id": "rad",   "label": "Radiation"},            "position": {"x": 100, "y": 100}},
+          {"data": {"id": "dna",   "label": "DNA Damage"},           "position": {"x": 250, "y": 100}},
+          {"data": {"id": "repair","label": "Gene Repair Mech."},    "position": {"x": 400, "y": 50}},
+          {"data": {"id": "cancer","label": "Cancer Risk"},          "position": {"x": 400, "y": 150}},
+          {"data": {"id": "counter","label": "Countermeasures"},     "position": {"x": 550, "y": 100}},
+          {"data": {"id": "mars",  "label": "Mars Mission Viability"},"position": {"x": 700, "y": 100}},
+          {"data": {"source": "rad", "target": "dna"},      "classes": "edge"},
+          {"data": {"source": "dna", "target": "repair"},   "classes": "edge"},
+          {"data": {"source": "dna", "target": "cancer"},   "classes": "edge"},
+          {"data": {"source": "repair","target": "counter"},"classes": "edge"},
+          {"data": {"source": "cancer","target": "counter"},"classes": "edge"},
+          {"data": {"source": "counter","target": "mars"},  "classes": "edge"}
+        ]
+      },
+      "countermeasures": {
+        "title": "Radiation Countermeasures",
+        "summary": "Research into radiation countermeasures is exploring both passive shielding and active biological interventions. Promising avenues include pharmaceutical radioprotectants and gene editing techniques. The challenge lies in developing solutions effective against the broad spectrum of cosmic radiation.",
+        "experiments": [
+          {"Organism": "Mice",       "Count": 10},
+          {"Organism": "Human Cells","Count": 15},
+          {"Organism": "Yeast",      "Count": 7}
+        ],
+        "knowledge_gaps": {"Drug Efficacy": 45, "Combined Stressors": 30, "Long-Term Safety": 25},
+        "actionable": {
+          "Mission Architects": "Integrate multi-layered shielding. Design habitats to allow crew members to shelter during solar events.",
+          "Scientists": "Identify and validate biomarkers for early radiation exposure and response. Develop broad-spectrum radioprotectants.",
+          "Managers": "Fund international collaborations to pool data on radiation biology and countermeasure testing."
+        },
+        "graph_elements": [
+          {"data": {"id": "rad",    "label": "Radiation Exposure"}, "position": {"x": 100, "y": 100}},
+          {"data": {"id": "shield", "label": "Shielding"},           "position": {"x": 250, "y": 50}},
+          {"data": {"id": "pharm",  "label": "Radioprotectants"},    "position": {"x": 250, "y": 150}},
+          {"data": {"id": "biorep", "label": "Biological Repair"},  "position": {"x": 400, "y": 100}},
+          {"data": {"id": "health", "label": "Crew Health"},         "position": {"x": 550, "y": 100}},
+          {"data": {"source": "rad", "target": "shield"}, "classes": "edge"},
+          {"data": {"source": "rad", "target": "pharm"},  "classes": "edge"},
+          {"data": {"source": "shield","target": "health"},"classes": "edge"},
+          {"data": {"source": "pharm", "target": "health"},"classes": "edge"},
+          {"data": {"source": "rad",   "target": "biorep"},"classes": "edge"},
+          {"data": {"source": "biorep","target": "health"},"classes": "edge"}
+        ]
+      }
+    }
+  },
+  "sleep": {
+    "display_name": "Sleep",
+    "default_subtopic": "circadian_rhythms",
+    "subtopics": {
+      "circadian_rhythms": {
+        "title": "Circadian Rhythms in Space",
+        "summary": "Sleep disruption in microgravity is a persistent issue, primarily linked to circadian rhythm desynchronization and environmental factors. Studies show a decrease in slow-wave sleep, impacting cognitive performance. Light therapy and optimized scheduling are promising countermeasures.",
+        "experiments": [
+          {"Organism": "Humans",  "Count": 25},
+          {"Organism": "Rodents", "Count": 8}
+        ],
+        "knowledge_gaps": {"Circadian Rhythm": 50, "Cognitive Impact": 30, "Pharmacology": 20},
+        "actionable": {
+          "Mission Architects": "Design crew quarters with dynamic lighting systems to simulate a 24-hour cycle. Improve acoustic insulation.",
+          "Scientists": "Investigate non-pharmacological interventions like meditation and personalised exercise regimes to improve sleep quality.",
+          "Managers": "Fund development of wearable technology to monitor crew sleep patterns and cognitive readiness in real-time."
+        },
+        "graph_elements": [
+          {"data": {"id": "microg", "label": "Microgravity"},      "position": {"x": 100, "y": 100}},
+          {"data": {"id": "circ",   "label": "Circadian Desync"},  "position": {"x": 250, "y": 100}},
+          {"data": {"id": "sleep",  "label": "Poor Sleep Quality"},"position": {"x": 400, "y": 100}},
+          {"data": {"id": "cog",    "label": "Cognitive Decline"}, "position": {"x": 550, "y": 50}},
+          {"data": {"id": "perf",   "label": "Mission Performance"},"position":{"x": 700, "y": 50}},
+          {"data": {"id": "light",  "label": "Light Therapy"},     "position": {"x": 550, "y": 150}},
+          {"data": {"source": "microg", "target": "circ"},  "classes": "edge"},
+          {"data": {"source": "circ",   "target": "sleep"}, "classes": "edge"},
+          {"data": {"source": "sleep",  "target": "cog"},   "classes": "edge"},
+          {"data": {"source": "cog",    "target": "perf"}, "classes": "edge"},
+          {"data": {"source": "light",  "target": "sleep"}, "classes": "edge"}
+        ]
+      },
+      "cognitive_performance": {
+        "title": "Cognitive Performance & Sleep",
+        "summary": "Reduced sleep quality in space directly impacts crew cognitive function, affecting decision-making and reaction times. Studies highlight the importance of understanding the links between sleep architecture changes and neurobehavioral performance metrics for mission success.",
+        "experiments": [{"Organism": "Humans", "Count": 18}],
+        "knowledge_gaps": {"Performance Metrics": 40, "Individual Variability": 35, "Long-Term Effects": 25},
+        "actionable": {
+          "Mission Architects": "Implement cognitive testing protocols throughout missions. Ensure adequate time for crew rest and recovery.",
+          "Scientists": "Develop more sensitive and space-appropriate cognitive assessment tools. Research the role of specific sleep stages on cognitive repair.",
+          "Managers": "Invest in psychological support programs and tools to manage stress and improve mental well-being for better sleep."
+        },
+        "graph_elements": [
+          {"data": {"id": "sleep_qual",  "label": "Sleep Quality"},    "position": {"x": 100, "y": 100}},
+          {"data": {"id": "cognition",   "label": "Cognitive Function"},"position":{"x": 250, "y": 100}},
+          {"data": {"id": "decision",    "label": "Decision Making"}, "position": {"x": 400, "y": 50}},
+          {"data": {"id": "reaction",    "label": "Reaction Time"},   "position": {"x": 400, "y": 150}},
+          {"data": {"id": "mission_succ","label": "Mission Success"}, "position": {"x": 550, "y": 100}},
+          {"data": {"source": "sleep_qual", "target": "cognition"},   "classes": "edge"},
+          {"data": {"source": "cognition",  "target": "decision"},    "classes": "edge"},
+          {"data": {"source": "cognition",  "target": "reaction"},    "classes": "edge"},
+          {"data": {"source": "decision",   "target": "mission_succ"},"classes": "edge"},
+          {"data": {"source": "reaction",   "target": "mission_succ"},"classes": "edge"}
+        ]
+      }
+    }
+  },
+  "plants": {
+    "display_name": "Plants",
+    "default_subtopic": "crop_cultivation",
+    "subtopics": {
+      "crop_cultivation": {
+        "title": "Space Crop Cultivation",
+        "summary": "Cultivating plants in space is crucial for long-duration missions, providing nutrition, oxygen, and psychological benefits. Research focuses on optimizing growth in microgravity, where altered root behavior and fluid dynamics pose challenges. LED lighting and hydroponic systems are key technologies being refined on the ISS.",
+        "experiments": [
+          {"Organism": "Lettuce",       "Count": 22},
+          {"Organism": "Radishes",      "Count": 15},
+          {"Organism": "Chili Peppers", "Count": 10},
+          {"Organism": "Arabidopsis",   "Count": 28}
+        ],
+        "knowledge_gaps": {"Nutrient Uptake": 40, "Pollination": 35, "Light Spectrum": 25},
+        "actionable": {
+          "Mission Architects": "Integrate modular 'space gardens' into habitat designs for Mars missions. Plan for power and water recycling systems.",
+          "Scientists": "Develop autonomous systems for monitoring plant health and harvesting. Research crop varieties that are more resilient to space stressors.",
+          "Managers": "Invest in advanced hydroponic and aeroponic technologies to increase crop yield and reduce resource consumption."
+        },
+        "graph_elements": [
+          {"data": {"id": "microg",   "label": "Microgravity"},         "position": {"x": 100, "y": 150}},
+          {"data": {"id": "roots",    "label": "Altered Root Growth"},  "position": {"x": 250, "y": 150}},
+          {"data": {"id": "nutrients","label": "Nutrients Uptake"},     "position": {"x": 400, "y": 150}},
+          {"data": {"id": "led",      "label": "LED Lighting"},         "position": {"x": 400, "y": 50}},
+          {"data": {"id": "yield",    "label": "Crop Yield"},           "position": {"x": 550, "y": 100}},
+          {"data": {"id": "missions", "label": "Mission Self-Sufficiency"},"position":{"x": 700, "y": 100}},
+          {"data": {"source": "microg", "target": "roots"},    "classes": "edge"},
+          {"data": {"source": "roots",  "target": "nutrients"},"classes": "edge"},
+          {"data": {"source": "nutrients","target":"yield"},   "classes": "edge"},
+          {"data": {"source": "led",    "target": "yield"},    "classes": "edge"},
+          {"data": {"source": "yield",  "target": "missions"}, "classes": "edge"}
+        ]
+      },
+      "plant_stress_response": {
+        "title": "Plant Stress Response in Space",
+        "summary": "Plants in space face unique stressors including microgravity, altered light, and radiation. Understanding their molecular and physiological responses is key to developing robust crop systems. Research indicates changes in gene expression related to cell wall modification and hormone signaling.",
+        "experiments": [
+          {"Organism": "Arabidopsis", "Count": 20},
+          {"Organism": "Wheat",       "Count": 10}
+        ],
+        "knowledge_gaps": {"Gene Regulation": 40, "Epigenetics": 30, "Long-Term Adaptation": 30},
+        "actionable": {
+          "Mission Architects": "Consider environmental control systems that can mitigate stress for plants, e.g., optimized CO2 levels.",
+          "Scientists": "Investigate genetic modifications to enhance plant resilience to spaceflight stressors. Focus on stress-responsive pathways.",
+          "Managers": "Fund automated phenotyping systems for in-situ monitoring of plant health and stress indicators."
+        },
+        "graph_elements": [
+          {"data": {"id": "microg",   "label": "Microgravity"},      "position": {"x": 100, "y": 100}},
+          {"data": {"id": "stress",   "label": "Plant Stress"},      "position": {"x": 250, "y": 100}},
+          {"data": {"id": "gene_exp", "label": "Gene Expression Change"},"position":{"x": 400, "y": 50}},
+          {"data": {"id": "hormones", "label": "Hormone Signaling"}, "position": {"x": 400, "y": 150}},
+          {"data": {"id": "resilience","label":"Plant Resilience"},  "position": {"x": 550, "y": 100}},
+          {"data": {"source": "microg", "target": "stress"},   "classes": "edge"},
+          {"data": {"source": "stress", "target": "gene_exp"}, "classes": "edge"},
+          {"data": {"source": "stress", "target": "hormones"}, "classes": "edge"},
+          {"data": {"source": "gene_exp","target":"resilience"},"classes":"edge"},
+          {"data": {"source": "hormones","target":"resilience"},"classes":"edge"}
+        ]
+      }
+    }
+  }
+}
