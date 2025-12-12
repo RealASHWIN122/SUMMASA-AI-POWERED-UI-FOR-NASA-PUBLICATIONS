@@ -32,7 +32,7 @@ def close_driver():
 atexit.register(close_driver)
 
 # Set the API key directly
-GEMINI_API_KEY = "AIzaSyA2f64amvhSBD26sDYgzJv6bgTQqlB_hNA"
+GEMINI_API_KEY = "AI"
 # Using the latest model since we are now calling the API directly
 MODEL_NAME = 'gemini-2.5-flash' 
 GEMINI_AVAILABLE = True if GEMINI_API_KEY else False
